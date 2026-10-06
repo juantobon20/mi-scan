@@ -6,6 +6,11 @@ cd "$(git rev-parse --show-toplevel)"
 staged=$(git diff --cached --name-only --diff-filter=ACMR)
 [ -z "$staged" ] && exit 0
 
+if [ ! -f .git/MERGE_HEAD ]; then
+  echo "==> changelog policy"
+  ./scripts/check_changelog.sh --staged
+fi
+
 if echo "$staged" | grep -qE '\.dart$|pubspec\.yaml$|analysis_options\.yaml$'; then
   echo "==> flutter analyze (unused imports, lints)"
   flutter analyze --fatal-infos --fatal-warnings

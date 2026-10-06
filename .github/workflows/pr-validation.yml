@@ -2,7 +2,7 @@ name: PR validation
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
     branches: [develop, main]
 
 permissions:
@@ -87,3 +87,17 @@ jobs:
 
       - name: English-only check
         run: dart tool/check_english.dart
+
+  changelog:
+    name: Changelog updated
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require a CHANGELOG.md entry
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: ./scripts/check_changelog.sh "origin/${BASE_BRANCH}...HEAD"

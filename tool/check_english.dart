@@ -64,8 +64,9 @@ List<String> defaultTargets() {
       if (entity is File && entity.path.endsWith('.dart')) files.add(entity.path);
     }
   }
-  final readme = File('README.md');
-  if (readme.existsSync()) files.add(readme.path);
+  for (final doc in ['README.md', 'CHANGELOG.md', 'CLAUDE.md']) {
+    if (File(doc).existsSync()) files.add(doc);
+  }
   final workflows = Directory('.github');
   if (workflows.existsSync()) {
     for (final entity in workflows.listSync(recursive: true)) {

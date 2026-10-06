@@ -202,10 +202,28 @@ The English check flags accented Latin letters, inverted Spanish punctuation and
 
 Notes: the release build is currently signed with the debug key (`android/app/build.gradle.kts`), which is fine for internal testing but not for the Play Store. iOS distribution is not set up because it needs signing certificates and provisioning profiles. Recommended repository settings: protect `develop` and `main`, require the `PR validation` and `CI` checks, and use squash merges so the PR title becomes the commit message.
 
+## Changelog policy
+
+Every change to project files, and every new resource (code, tests, assets, dependencies, CI, scripts), must add an entry to [`CHANGELOG.md`](CHANGELOG.md) under `## [Unreleased]`. This applies equally to human and AI-authored changes.
+
+- Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with the sections `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` and `Security`.
+- Write one bullet per change, in English, describing the effect for users or maintainers rather than the file touched.
+- On release, rename `[Unreleased]` to the new version and date, and open a fresh `[Unreleased]` section.
+- Exempt files: `CHANGELOG.md`, `README.md`, `CLAUDE.md`, `.gitignore`, `pubspec.lock`, `.metadata`.
+
+Enforcement:
+
+| Where | How |
+|---|---|
+| Local commit | `.githooks/pre-commit` runs `scripts/check_changelog.sh --staged`; it fails unless the staged `CHANGELOG.md` adds at least one `- ` bullet |
+| Pull request | The `changelog` job in `pr-validation.yml` runs the same script against the PR diff; a maintainer can bypass it with the `skip-changelog` label for changes with no user or maintainer impact |
+| AI assistants | `CLAUDE.md` makes updating the changelog part of every task |
+
 ## Conventions
 
 - All code, identifiers, UI strings and tests are in English.
 - No code comments: behavior and contracts are documented in this README.
+- `CLAUDE.md` holds the context and rules for AI assistants; keep it in sync with the architecture.
 
 ## Known limitations and next steps
 

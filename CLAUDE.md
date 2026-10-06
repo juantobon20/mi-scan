@@ -65,4 +65,4 @@ flutter test integration_test -d <id>   # requiere simulador/dispositivo
 - `opencv_dart` necesita assets nativos; el primer build de iOS/Android es lento. La cámara y la detección en vivo solo funcionan en un dispositivo real.
 - Se usan los parámetros nombrados privados de Dart 3.12 (`required this._createDocument` en `ScanSession`); quien llama pasa `createDocument:`.
 - Las pruebas de widgets que tocan E/S de archivos reales o decodificación de imágenes necesitan `tester.runAsync` y varios ciclos cortos de `pump` (ver `crop_screen_test.dart`).
-- El build release está firmado con la clave debug; solo sirve para pruebas internas.
+- La firma de release sale de variables de entorno o `android/key.properties`; sin ellas el build local usa la clave debug. Nunca imprimas, commitees ni pidas en el chat el keystore, las contraseñas ni el token. Los secretos de distribución viven en el environment `release` de GitHub.

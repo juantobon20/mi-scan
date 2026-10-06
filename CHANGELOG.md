@@ -7,15 +7,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Añadido
+- Firma de release de Android sin credenciales en el código: `android/app/build.gradle.kts` lee el keystore de variables de entorno o de `android/key.properties`, y `firebase-distribution.yml` lo restaura desde secretos de GitHub, valida que el APK no esté firmado con la clave debug y borra el keystore al terminar.
 - `CHANGELOG.md` y una política de changelog aplicada por el hook de pre-commit (`scripts/check_changelog.sh`) y por el workflow `PR validation`.
 - `CLAUDE.md` con el contexto del proyecto y las reglas de trabajo para asistentes de IA.
 - Estrategia de ramas (GitFlow simplificado), flujos de trabajo, release y hotfix, y reglas de protección de ramas y tags en el README.
 - Reglas de protección como código (`.github/rulesets/`), `.github/CODEOWNERS` y `scripts/apply_github_rules.sh`: solo el dueño del repositorio puede integrar en `main` y `develop`, y los tags `v*` están protegidos.
 
 ### Cambiado
+- `firebase-distribution.yml` usa el environment `release` y falla si faltan los secretos de firma.
 - `pr-validation.yml` permite el PR de back-merge `main → develop`.
 - `firebase-distribution.yml` rechaza tags `v*` que no estén en `main`.
 - Todos los archivos `.md` (`README.md`, `CHANGELOG.md`, `CLAUDE.md` y la plantilla de PR) están en español y `tool/check_english.dart` ya no los revisa.
+
+### Seguridad
+- Se ignoran `*.jks`, `*.keystore` y `key.properties` también en la raíz del repositorio, y la clave de firma ya no está en el código.
 
 ## [1.0.0] - 2026-10-06
 

@@ -6,6 +6,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Cambiado
+- El README ya no incluye los pasos para crear el keystore, probar la firma en local ni subir los secretos, porque están configurados; se conserva la descripción del flujo y los nombres de los secretos.
+- El README describe que el workflow verifica la firma con `apksigner`.
+- `.gitignore` ignora las capturas locales `img*.png` de la raíz del repositorio.
+
 ### Añadido
 - Firma de release de Android sin credenciales en el código: `android/app/build.gradle.kts` lee el keystore de variables de entorno o de `android/key.properties`, y `firebase-distribution.yml` lo restaura desde secretos de GitHub, valida que el APK no esté firmado con la clave debug y borra el keystore al terminar.
 - `CHANGELOG.md` y una política de changelog aplicada por el hook de pre-commit (`scripts/check_changelog.sh`) y por el workflow `PR validation`.

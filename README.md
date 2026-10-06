@@ -190,12 +190,7 @@ Los nombres de rama y los destinos de cada tipo de rama están en [Estrategia de
 
 **Título del PR:** `<type>(<scope>)?: <description>` (Conventional Commits), por ejemplo `feat(scanner): add flash toggle`.
 
-**Configuración de Firebase App Distribution:**
-
-1. En Firebase, registra la app Android `com.appinc.mi_scan`, habilita App Distribution y crea un grupo de testers (nombre por defecto `testers`).
-2. Crea una cuenta de servicio con el rol *Firebase App Distribution Admin* y descarga su clave JSON.
-3. Agrega los secretos `FIREBASE_ANDROID_APP_ID` (por ejemplo `1:1234567890:android:abc123`) y `FIREBASE_SERVICE_ACCOUNT_JSON` (el contenido completo del JSON) al environment `release`, junto con los de firma (ver [Firma de release](#firma-de-release-android)).
-4. Ejecuta el workflow manualmente (eligiendo grupos y notas de versión) o sube un tag como `v1.0.0`.
+**Publicar una versión en Firebase App Distribution:** la app de Firebase, el grupo de testers `testers` y los secretos del environment `release` ya están configurados (ver [Firma de release](#firma-de-release-android)). Para publicar, ejecuta el workflow manualmente desde `main` (eligiendo grupos y notas de versión) o sube un tag desde `main`, por ejemplo `v1.0.0`. El job espera tu aprobación del environment `release` antes de usar los secretos.
 
 Notas: la firma de release se describe en la sección siguiente. La distribución en iOS no está configurada porque requiere certificados de firma y perfiles de aprovisionamiento. Configuración recomendada del repositorio: proteger `develop` y `main`, exigir los checks `PR validation` y `CI`, y usar squash merge para que el título del PR sea el mensaje del commit.
 
@@ -210,36 +205,18 @@ El keystore y las contraseñas **nunca están en el código**: `android/app/buil
 | `ANDROID_KEY_ALIAS` | `keyAlias` | Alias de la clave |
 | `ANDROID_KEY_PASSWORD` | `keyPassword` | Contraseña de la clave |
 
-**1. Crear el keystore** (una sola vez; guarda una copia en un gestor de contraseñas: si lo pierdes no podrás actualizar la app en Play Store):
+**Secretos del environment `release`.** El keystore y las credenciales ya están configurados como secretos del environment `release` (despliegue restringido a `main` y a los tags `v*`, con revisor requerido). Solo llegan a los jobs que declaran `environment: release`. Si hay que rotarlos o auditarlos, se gestionan en *Settings → Environments → release*.
 
-```bash
-keytool -genkeypair -v -keystore ~/mi-scan-release.jks -alias mi-scan \
-  -keyalg RSA -keysize 2048 -validity 10000
-```
-
-**2. Probar localmente** creando `android/key.properties` (ignorado por git):
-
-```properties
-storeFile=/ruta/absoluta/mi-scan-release.jks
-storePassword=...
-keyAlias=mi-scan
-keyPassword=...
-```
-
-**3. Subir los secretos a GitHub.** Crea un *environment* llamado `release` en *Settings → Environments*, restringe su despliegue a la rama `main` y a los tags `v*`, y agrega los revisores requeridos (tú). Guarda ahí los secretos de firma y los de Firebase:
-
-| Secreto | Valor |
+| Secreto | Uso |
 |---|---|
-| `ANDROID_KEYSTORE_BASE64` | `base64 -i ~/mi-scan-release.jks \| pbcopy` (macOS) y pegar |
+| `ANDROID_KEYSTORE_BASE64` | Keystore `.jks` codificado en base64 |
 | `ANDROID_KEYSTORE_PASSWORD` | Contraseña del keystore |
 | `ANDROID_KEY_ALIAS` | Alias de la clave |
 | `ANDROID_KEY_PASSWORD` | Contraseña de la clave |
 | `FIREBASE_ANDROID_APP_ID` | Id de la app Android en Firebase |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Clave JSON de la cuenta de servicio |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Clave JSON de la cuenta de servicio de distribución |
 
-Los secretos de un environment solo llegan a los jobs que declaran `environment: release`, y con las restricciones de despliegue no se exponen a ramas arbitrarias. Si ya los habías creado como secretos del repositorio, muévelos al environment y bórralos del nivel de repositorio.
-
-**Qué hace el workflow:** valida que los cuatro secretos de firma existan, restaura el keystore en un directorio temporal del runner, compila el APK firmado, comprueba con `keytool` que el certificado no sea `CN=Android Debug`, lo sube a Firebase y borra el keystore al terminar.
+**Qué hace el workflow:** valida que los cuatro secretos de firma existan, restaura el keystore en un directorio temporal del runner, compila el APK firmado, comprueba con `apksigner` que el certificado no sea `CN=Android Debug`, lo sube a Firebase y borra el keystore al terminar.
 
 ## Estrategia de ramas
 

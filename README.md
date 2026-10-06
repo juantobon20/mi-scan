@@ -1,234 +1,234 @@
 # Mi Scan
 
-A document scanner for Android and iOS built with Flutter. It detects document edges live with OpenCV, corrects perspective, applies filters and produces multi-page PDFs that can be shared.
+Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes del documento en vivo con OpenCV, corrige la perspectiva, aplica filtros y genera PDFs de varias páginas que se pueden compartir.
 
-> Portfolio project: beyond the features, the focus is **clean architecture, dependency injection and a test suite** (unit, widget and integration).
+> Proyecto de portafolio: además de las funcionalidades, el foco está en una **arquitectura limpia, inyección de dependencias y una suite de pruebas** (unitarias, de widgets y de integración).
 
-## Features
+## Funcionalidades
 
-- Camera with **live edge detection** (Canny + contours, run in an isolate).
-- Import from the **gallery** with multi-selection (HEIC is converted to JPEG on iOS).
-- Crop editor with draggable corners, automatic detection and **filters**: Original, Enhanced, Grayscale, Black & White (adaptive threshold).
-- Page review: reorder, rotate, delete, add more.
-- **PDF** generation (A4, portrait or landscape depending on the image) with a thumbnail.
-- Document list: share, rename (name collisions are resolved) and delete.
-- Material 3 light/dark theme.
+- Cámara con **detección de bordes en vivo** (Canny + contornos, ejecutada en un isolate).
+- Importación desde la **galería** con selección múltiple (HEIC se convierte a JPEG en iOS).
+- Editor de recorte con esquinas arrastrables, detección automática y **filtros**: Original, Enhanced, Grayscale, B&W (umbral adaptativo).
+- Revisión de páginas: reordenar, rotar, eliminar y agregar más.
+- Generación de **PDF** (A4, vertical u horizontal según la imagen) con miniatura.
+- Lista de documentos: compartir, renombrar (se resuelven colisiones de nombre) y eliminar.
+- Tema claro/oscuro Material 3.
 
 ## Stack
 
-| Area | Package |
+| Área | Paquete |
 |---|---|
-| Camera | `camera` |
-| Computer vision | `opencv_dart` |
+| Cámara | `camera` |
+| Visión por computador | `opencv_dart` |
 | PDF | `pdf` |
-| Gallery | `photo_manager` |
-| Sharing | `share_plus` |
-| Storage | `path_provider`, `path` |
-| Dependency injection | `get_it` |
-| Testing | `flutter_test`, `mocktail`, `integration_test` |
+| Galería | `photo_manager` |
+| Compartir | `share_plus` |
+| Almacenamiento | `path_provider`, `path` |
+| Inyección de dependencias | `get_it` |
+| Pruebas | `flutter_test`, `mocktail`, `integration_test` |
 
-State management: `ChangeNotifier` + `ListenableBuilder` (no extra library; enough for the size of the app).
+Manejo de estado: `ChangeNotifier` + `ListenableBuilder` (sin librería adicional; suficiente para el tamaño de la app).
 
-## Architecture
+## Arquitectura
 
-Clean Architecture in three layers. The dependency rule always points towards the domain.
+Clean Architecture en tres capas. La regla de dependencia siempre apunta hacia el dominio.
 
 ```
         presentation ───────▶ domain ◀─────── data
-   (widgets, controllers)   (pure Dart)   (plugins, disk, OpenCV)
+   (widgets, controllers)   (Dart puro)   (plugins, disco, OpenCV)
                                ▲
-                core/di  (composition root: the only place that
-                          knows the concrete implementations)
+                core/di  (composition root: el único lugar que
+                          conoce las implementaciones concretas)
 ```
 
 ```
 lib/
-├── main.dart                     # entry point: configureDependencies() + runApp
-├── app.dart                      # MaterialApp, themes, home screen
+├── main.dart                     # arranque: configureDependencies() + runApp
+├── app.dart                      # MaterialApp, temas, pantalla inicial
 ├── core/
-│   ├── di/service_locator.dart   # dependency registration (get_it)
+│   ├── di/service_locator.dart   # registro de dependencias (get_it)
 │   ├── theme/app_theme.dart
-│   └── utils/formatters.dart     # date/size formatting, file names, silentDelete
-├── domain/                       # pure Dart, no Flutter or plugins
+│   └── utils/formatters.dart     # formato de fecha/tamaño, nombres de archivo, silentDelete
+├── domain/                       # Dart puro, sin Flutter ni plugins
 │   ├── entities/                 # Quad, ScanPage, ScanFilter, ScannedDocument, GrayFrame
-│   ├── repositories/             # DocumentRepository (interface)
+│   ├── repositories/             # DocumentRepository (interfaz)
 │   ├── services/                 # ImageProcessor, PdfGenerator, ThumbnailGenerator,
 │   │                             # ShareService, SessionStorage (interfaces)
 │   └── usecases/                 # ListDocuments, CreateDocument, RenameDocument, DeleteDocument
 ├── data/
-│   ├── repositories/file_document_repository.dart   # PDFs on disk + thumbnails
+│   ├── repositories/file_document_repository.dart   # PDFs en disco + miniaturas
 │   └── services/                 # OpenCvImageProcessor, PdfPackageGenerator,
 │                                 # UiThumbnailGenerator, SharePlusService,
 │                                 # PathProviderDirectories, FileSessionStorage
 └── presentation/
     ├── home/                     # HomeScreen + HomeController
     ├── scanner/                  # ScannerScreen, ScanSession, frame_converter
-    ├── crop/                     # CropScreen (corner editor and filters)
-    ├── review/                   # ReviewScreen (pages of the session)
+    ├── crop/                     # CropScreen (editor de esquinas y filtros)
+    ├── review/                   # ReviewScreen (páginas de la sesión)
     ├── gallery/                  # GalleryPickerScreen
-    └── widgets/                  # QuadPainter, name dialog, PDF saving
+    └── widgets/                  # QuadPainter, diálogo de nombre, guardado de PDF
 ```
 
-### Capture flow
+### Flujo de captura
 
 ```
 ScannerScreen ──takePicture──▶ ScanSession.importSource ──▶ ImageProcessor.normalize
-      │                                                          (JPEG, max 3000 px)
+      │                                                          (JPEG, máx. 3000 px)
       ▼
 CropScreen ──detectInFile──▶ ImageProcessor.detectInFile ──▶ Quad
-      │  (user adjusts corners and filter)
+      │  (el usuario ajusta esquinas y filtro)
       ▼
-ScanSession.cropPage ──▶ ImageProcessor.crop (perspective + filter) ──▶ ScanPage
+ScanSession.cropPage ──▶ ImageProcessor.crop (perspectiva + filtro) ──▶ ScanPage
       ▼
 ScanSession.saveAsPdf ──▶ CreateDocument ──▶ DocumentRepository ──▶ PdfGenerator + ThumbnailGenerator
 ```
 
-### Design decisions
+### Decisiones de diseño
 
-- **`ScanSession` as presentation facade.** It holds the pages of an ongoing scan and is the only entry point from the screens to the domain. Screens receive just the session, which keeps wiring small and makes it easy to replace in tests.
-- **The domain knows no plugins.** `Quad` relies on `dart:math`; the geometry (corner ordering, convexity, temporal smoothing) is pure logic and is tested without a device.
-- **OpenCV isolated behind `ImageProcessor`.** The app logic is tested with a double. Only primitive types (`List<double>`, paths) cross the isolate boundary.
-- **Heavy work off the UI thread.** Detection and filters use `compute`; live detection is throttled to ~5 fps and frames are subsampled to ~320 px (`frame_converter.dart`).
-- **No database.** Each document is `name.pdf` + `name.pdf.jpg` (thumbnail); `FileDocumentRepository` resolves collisions (`Doc`, `Doc (2)`, ...) and sanitizes names.
+- **`ScanSession` como fachada de presentación.** Guarda las páginas de un escaneo en curso y es la única puerta de entrada de las pantallas al dominio. Las pantallas reciben solo la sesión, lo que reduce el cableado y facilita reemplazarla en las pruebas.
+- **El dominio no conoce plugins.** `Quad` usa `dart:math`; la geometría (orden de esquinas, convexidad, suavizado temporal) es lógica pura y se prueba sin dispositivo.
+- **OpenCV aislado detrás de `ImageProcessor`.** La lógica de la app se prueba con un doble. Solo tipos primitivos (`List<double>`, rutas) cruzan el límite del isolate.
+- **Trabajo pesado fuera del hilo de UI.** La detección y los filtros usan `compute`; la detección en vivo se limita a ~5 fps y los frames se submuestrean a ~320 px (`frame_converter.dart`).
+- **Sin base de datos.** Cada documento es `nombre.pdf` + `nombre.pdf.jpg` (miniatura); `FileDocumentRepository` resuelve colisiones (`Doc`, `Doc (2)`, ...) y sanea los nombres.
 
-### Contracts worth knowing
+### Contratos importantes
 
-These replace in-code comments; the code itself carries none.
+Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 
-| Element | Contract |
+| Elemento | Contrato |
 |---|---|
-| `Quad` | Four points normalized to 0..1, ordered top-left, top-right, bottom-right, bottom-left. `Quad.ordered` sorts any four corners into that order; `Quad.inset(m)` is a rectangle with margin `m`; `toFlat`/`fromFlat` use `[x0, y0, x1, y1, ...]`. |
-| `Quad.smoothedTo` | Interpolates towards the next detection by `factor`; if any vertex jumps more than `maxJump` it is treated as a different document and the new quad is adopted as is. |
-| `isConvexQuad` | `true` only for four points in traversal order forming a convex, non-degenerate polygon. |
-| `GrayFrame` | Grayscale camera frame; `rotation` is the sensor orientation in degrees (0, 90, 180, 270). |
-| `downsampleToGray` | Subsamples a camera plane to ~320 px wide. Android (YUV420): plane 0 is already luminance. iOS (BGRA8888): luma approximated as (B + 2G + R) / 4. Honors `bytesPerRow` padding. |
-| `ImageProcessor.normalize` | Downscales to at most 3000 px and writes a JPEG; `src` and `dst` may be the same file. |
-| `ImageProcessor.crop` | Corrects perspective using the quad, applies the filter and writes the JPEG. |
-| `ImageProcessor.rotate` | Rotates 90° clockwise in place and returns the new size. |
-| `DocumentRepository.list` | Most recent first; thumbnails are not listed as documents. |
-| `ScanSession.move` | Same semantics as `ReorderableListView.onReorderItem` (index after removal). |
-| `ScanSession.cropPage` | Returns the cropped page but does **not** add it; the scanner adds it with `add`. |
-| `saveSessionAsPdf` | Asks for a name, shows a progress dialog, returns `null` if cancelled or on failure (a snackbar is shown). |
-| `showNameDialog` | Returns the entered text, or `null` if cancelled. |
-| `GalleryPickerScreen` | Returns the JPEG paths of the chosen images, in selection order. |
-| `CropResult` | The cropped page and whether the user chose to save the PDF now. |
+| `Quad` | Cuatro puntos normalizados a 0..1, ordenados arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda. `Quad.ordered` ordena cuatro esquinas cualesquiera en ese orden; `Quad.inset(m)` es un rectángulo con margen `m`; `toFlat`/`fromFlat` usan `[x0, y0, x1, y1, ...]`. |
+| `Quad.smoothedTo` | Interpola hacia la siguiente detección según `factor`; si algún vértice salta más de `maxJump` se considera otro documento y se adopta el nuevo quad tal cual. |
+| `isConvexQuad` | `true` solo para cuatro puntos, en orden de recorrido, que forman un polígono convexo y no degenerado. |
+| `GrayFrame` | Frame de cámara en escala de grises; `rotation` es la orientación del sensor en grados (0, 90, 180, 270). |
+| `downsampleToGray` | Submuestrea un plano de la cámara a ~320 px de ancho. Android (YUV420): el plano 0 ya es luminancia. iOS (BGRA8888): luma aproximada como (B + 2G + R) / 4. Respeta el relleno de `bytesPerRow`. |
+| `ImageProcessor.normalize` | Reduce a un máximo de 3000 px y escribe un JPEG; `src` y `dst` pueden ser el mismo archivo. |
+| `ImageProcessor.crop` | Corrige la perspectiva con el quad, aplica el filtro y escribe el JPEG. |
+| `ImageProcessor.rotate` | Rota 90° en sentido horario sobre el mismo archivo y devuelve el nuevo tamaño. |
+| `DocumentRepository.list` | Más reciente primero; las miniaturas no se listan como documentos. |
+| `ScanSession.move` | Misma semántica que `ReorderableListView.onReorderItem` (índice después de quitar el elemento). |
+| `ScanSession.cropPage` | Devuelve la página recortada pero **no** la agrega; el escáner la agrega con `add`. |
+| `saveSessionAsPdf` | Pide un nombre, muestra un diálogo de progreso y devuelve `null` si se cancela o falla (se muestra un snackbar). |
+| `showNameDialog` | Devuelve el texto ingresado, o `null` si se cancela. |
+| `GalleryPickerScreen` | Devuelve las rutas JPEG de las imágenes elegidas, en orden de selección. |
+| `CropResult` | La página recortada y si el usuario eligió guardar el PDF ahora. |
 
-## Dependency injection
+## Inyección de dependencias
 
-`core/di/service_locator.dart` is the *composition root*:
+`core/di/service_locator.dart` es el *composition root*:
 
-| Type | Registration |
+| Tipo | Registro |
 |---|---|
-| Services, repository and use cases | `registerLazySingleton` |
-| `HomeController` | `registerFactory` (new instance per use) |
-| `ScanSessionFactory` | singleton that creates one `ScanSession` per scan |
+| Servicios, repositorio y casos de uso | `registerLazySingleton` |
+| `HomeController` | `registerFactory` (instancia nueva en cada uso) |
+| `ScanSessionFactory` | singleton que crea una `ScanSession` por escaneo |
 
-Classes receive their dependencies **through the constructor** and depend on interfaces; the locator is only queried in `app.dart` and in its own registration. Tests build objects directly with doubles or re-register the graph (`sl.reset()`), as `integration_test/` does.
+Las clases reciben sus dependencias **por constructor** y dependen de interfaces; el localizador solo se consulta en `app.dart` y en su propio registro. Las pruebas construyen los objetos directamente con dobles o vuelven a registrar el grafo (`sl.reset()`), como hace `integration_test/`.
 
-## Testing
+## Pruebas
 
 ```bash
-flutter test                                        # unit + widget tests (107 tests)
-flutter test integration_test -d <device-id>        # integration on a simulator/device
+flutter test                                        # pruebas unitarias + de widgets (107 pruebas)
+flutter test integration_test -d <id-dispositivo>   # integración en simulador/dispositivo
 flutter test --coverage
 ```
 
-| Type | What it covers |
+| Tipo | Qué cubre |
 |---|---|
-| Domain unit | `Quad` (ordering, convexity, smoothing, serialization), use cases (with `mocktail`) |
-| Data unit | `FileDocumentRepository` against a real temp directory: create, list, rename, delete, collisions |
-| Presentation unit | `ScanSession`, `HomeController`, `downsampleToGray` (YUV/BGRA, `bytesPerRow`), formatters, DI graph |
-| Widget | `HomeScreen` (empty, loading, error/retry, rename, delete, share), `ReviewScreen`, `CropScreen` (filters, save/add/cancel, batch, drag), `QuadPainter` |
-| Integration | Full flow with the real widget tree and DI container on an iOS simulator: list → rename → share → delete; open and close the scanner |
+| Unitarias de dominio | `Quad` (orden, convexidad, suavizado, serialización), casos de uso (con `mocktail`) |
+| Unitarias de datos | `FileDocumentRepository` contra un directorio temporal real: crear, listar, renombrar, eliminar, colisiones |
+| Unitarias de presentación | `ScanSession`, `HomeController`, `downsampleToGray` (YUV/BGRA, `bytesPerRow`), formateadores, grafo de DI |
+| Widgets | `HomeScreen` (vacío, carga, error/reintento, renombrar, eliminar, compartir), `ReviewScreen`, `CropScreen` (filtros, guardar/agregar/cancelar, lote, arrastre), `QuadPainter` |
+| Integración | Flujo completo con el árbol real de widgets y el contenedor de DI en un simulador iOS: listar → renombrar → compartir → eliminar; abrir y cerrar el escáner |
 
-Test doubles live in `test/helpers/fakes.dart` (in-memory repository, image processor, share service, etc.).
+Los dobles de prueba están en `test/helpers/fakes.dart` (repositorio en memoria, procesador de imágenes, servicio de compartir, etc.).
 
-**Coverage:** ~56% of lines overall; ~95% in the domain, repository, controllers and session. `OpenCvImageProcessor`, `GalleryPickerScreen` and most of `ScannerScreen` are not covered because they depend on native OpenCV, `photo_manager` and the real camera (see limitations).
+**Cobertura:** ~56 % de las líneas en total; ~95 % en dominio, repositorio, controladores y sesión. `OpenCvImageProcessor`, `GalleryPickerScreen` y la mayor parte de `ScannerScreen` no están cubiertos porque dependen de OpenCV nativo, `photo_manager` y la cámara real (ver limitaciones).
 
-## Running
+## Ejecución
 
-Requirements: Flutter 3.44+ (Dart ^3.12).
+Requisitos: Flutter 3.44+ (Dart ^3.12).
 
 ```bash
 flutter pub get
-flutter run                 # use a physical device to access the camera
+flutter run                 # usa un dispositivo físico para acceder a la cámara
 ```
 
-Regenerate icons: `dart run flutter_launcher_icons`.
+Regenerar iconos: `dart run flutter_launcher_icons`.
 
-## Quality gates
+## Controles de calidad
 
-Local checks (run on every commit and in CI):
+Verificaciones locales (se ejecutan en cada commit y en CI):
 
-| Check | How |
+| Verificación | Cómo |
 |---|---|
-| Unused imports, unused code, import ordering, lints | `flutter analyze --fatal-infos --fatal-warnings` with strict rules in `analysis_options.yaml` (`unused_import`, `directives_ordering`, `prefer_single_quotes`, ...) |
-| English-only code, strings and docs | `dart tool/check_english.dart` |
-| Conventional commit messages | `.githooks/commit-msg` |
+| Imports sin usar, código sin usar, orden de imports, lints | `flutter analyze --fatal-infos --fatal-warnings` con reglas estrictas en `analysis_options.yaml` (`unused_import`, `directives_ordering`, `prefer_single_quotes`, ...) |
+| Código, textos y documentación solo en inglés | `dart tool/check_english.dart` |
+| Mensajes de commit convencionales | `.githooks/commit-msg` |
 
-The English check flags accented Latin letters, inverted Spanish punctuation and non-Latin scripts (Cyrillic, CJK, ...) and a curated list of distinctive Spanish words (`tool/spanish_words.txt`) found in identifiers, strings and docs of `lib/`, `test/`, `integration_test/`, and `.github/`. `README.md`, `CHANGELOG.md` and `CLAUDE.md` are excluded and may be written in Spanish or English. It is a heuristic, not a translator: extend the word list when a new false negative shows up. The checker has its own tests in `test/tool/`.
+La verificación de inglés marca letras latinas con acento, signos de puntuación invertidos del español y alfabetos no latinos (cirílico, CJK, ...), además de una lista curada de palabras distintivas del español (`tool/spanish_words.txt`) encontradas en identificadores, textos y documentos de `lib/`, `test/`, `integration_test/` y `.github/`. `README.md`, `CHANGELOG.md` y `CLAUDE.md` están excluidos y pueden escribirse en español o en inglés. Es una heurística, no un traductor: amplía la lista de palabras cuando aparezca un falso negativo nuevo. El verificador tiene sus propias pruebas en `test/tool/`.
 
 ### Git hooks
 
 ```bash
-./scripts/install_hooks.sh      # sets core.hooksPath to .githooks (run once after cloning)
-./scripts/check_quality.sh      # run the same checks manually
+./scripts/install_hooks.sh      # configura core.hooksPath a .githooks (una vez después de clonar)
+./scripts/check_quality.sh      # ejecuta las mismas verificaciones manualmente
 ```
 
-- `pre-commit`: analyzer plus English check on the staged files.
-- `commit-msg`: requires `<type>(<scope>)?: <description>` in English, with type in `feat fix chore docs refactor test ci perf build style revert`.
+- `pre-commit`: política de changelog, analizador y verificación de inglés sobre los archivos en stage.
+- `commit-msg`: exige `<type>(<scope>)?: <description>` en inglés, con type en `feat fix chore docs refactor test ci perf build style revert`.
 
 ## CI/CD (GitHub Actions)
 
-| Workflow | Trigger | What it does |
+| Workflow | Disparador | Qué hace |
 |---|---|---|
-| `pr-validation.yml` | PR to `develop` or `main` | Validates branch name, PR title and ASCII-only text, then runs analyzer and English check |
-| `ci.yml` | Push (merge) to `develop`, PRs | Analyzer, English check, `flutter test --coverage`, uploads `lcov.info` |
-| `firebase-distribution.yml` | Manual run or tag `v*` | Quality gate, release APK build, upload to Firebase App Distribution |
+| `pr-validation.yml` | PR a `develop` o `main` | Valida nombre de rama, título del PR, texto solo ASCII y changelog; luego ejecuta analizador y verificación de inglés |
+| `ci.yml` | Push (merge) a `develop`, PRs | Analizador, verificación de inglés, `flutter test --coverage`, sube `lcov.info` |
+| `firebase-distribution.yml` | Ejecución manual o tag `v*` | Control de calidad, compilación del APK release y subida a Firebase App Distribution |
 
-**Branch naming:** `<type>/<kebab-case-description>` with type in `feature bugfix hotfix release chore docs refactor test ci`, for example `feature/add-flash-toggle`.
+**Nombres de rama:** `<type>/<kebab-case-description>` con type en `feature bugfix hotfix release chore docs refactor test ci`, por ejemplo `feature/add-flash-toggle`.
 
-- `feature`, `bugfix`, `chore`, `docs`, `refactor`, `test`, `ci` branches target `develop`.
-- `release/*` and `hotfix/*` branches target `main`; `develop` may also be merged into `main`.
+- Las ramas `feature`, `bugfix`, `chore`, `docs`, `refactor`, `test` y `ci` apuntan a `develop`.
+- Las ramas `release/*` y `hotfix/*` apuntan a `main`; `develop` también puede fusionarse en `main`.
 
-**PR title:** `<type>(<scope>)?: <description>` (Conventional Commits), for example `feat(scanner): add flash toggle`.
+**Título del PR:** `<type>(<scope>)?: <description>` (Conventional Commits), por ejemplo `feat(scanner): add flash toggle`.
 
-**Firebase App Distribution setup:**
+**Configuración de Firebase App Distribution:**
 
-1. In Firebase, register the Android app `com.appinc.mi_scan`, enable App Distribution and create a tester group (default name `testers`).
-2. Create a service account with the *Firebase App Distribution Admin* role and download its JSON key.
-3. Add these repository secrets: `FIREBASE_ANDROID_APP_ID` (for example `1:1234567890:android:abc123`) and `FIREBASE_SERVICE_ACCOUNT_JSON` (the full JSON content).
-4. Run the workflow manually (choosing groups and release notes) or push a tag such as `v1.0.0`.
+1. En Firebase, registra la app Android `com.appinc.mi_scan`, habilita App Distribution y crea un grupo de testers (nombre por defecto `testers`).
+2. Crea una cuenta de servicio con el rol *Firebase App Distribution Admin* y descarga su clave JSON.
+3. Agrega estos secretos al repositorio: `FIREBASE_ANDROID_APP_ID` (por ejemplo `1:1234567890:android:abc123`) y `FIREBASE_SERVICE_ACCOUNT_JSON` (el contenido completo del JSON).
+4. Ejecuta el workflow manualmente (eligiendo grupos y notas de versión) o sube un tag como `v1.0.0`.
 
-Notes: the release build is currently signed with the debug key (`android/app/build.gradle.kts`), which is fine for internal testing but not for the Play Store. iOS distribution is not set up because it needs signing certificates and provisioning profiles. Recommended repository settings: protect `develop` and `main`, require the `PR validation` and `CI` checks, and use squash merges so the PR title becomes the commit message.
+Notas: el build release está firmado actualmente con la clave debug (`android/app/build.gradle.kts`), lo cual sirve para pruebas internas pero no para Play Store. La distribución en iOS no está configurada porque requiere certificados de firma y perfiles de aprovisionamiento. Configuración recomendada del repositorio: proteger `develop` y `main`, exigir los checks `PR validation` y `CI`, y usar squash merge para que el título del PR sea el mensaje del commit.
 
-## Changelog policy
+## Política de changelog
 
-Every change to project files, and every new resource (code, tests, assets, dependencies, CI, scripts), must add an entry to [`CHANGELOG.md`](CHANGELOG.md) under `## [Unreleased]`. This applies equally to human and AI-authored changes.
+Todo cambio en archivos del proyecto, y todo recurso nuevo (código, pruebas, assets, dependencias, CI, scripts), debe agregar una entrada en [`CHANGELOG.md`](CHANGELOG.md) bajo `## [Sin publicar]`. Aplica por igual a cambios hechos por personas y por IA.
 
-- Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with the sections `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` and `Security`.
-- Write one bullet per change, in Spanish or English, describing the effect for users or maintainers rather than the file touched.
-- On release, rename `[Unreleased]` to the new version and date, and open a fresh `[Unreleased]` section.
-- Exempt files: `CHANGELOG.md`, `README.md`, `CLAUDE.md`, `.gitignore`, `pubspec.lock`, `.metadata`.
+- Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), con las secciones `Añadido`, `Cambiado`, `Obsoleto`, `Eliminado`, `Corregido` y `Seguridad`.
+- Escribe una viñeta por cambio, en español, describiendo el efecto para usuarios o mantenedores y no el archivo modificado.
+- Al publicar una versión, renombra `[Sin publicar]` con la nueva versión y fecha, y abre una nueva sección `[Sin publicar]`.
+- Archivos exentos: `CHANGELOG.md`, `README.md`, `CLAUDE.md`, `.gitignore`, `pubspec.lock`, `.metadata`.
 
-Enforcement:
+Cumplimiento:
 
-| Where | How |
+| Dónde | Cómo |
 |---|---|
-| Local commit | `.githooks/pre-commit` runs `scripts/check_changelog.sh --staged`; it fails unless the staged `CHANGELOG.md` adds at least one `- ` bullet |
-| Pull request | The `changelog` job in `pr-validation.yml` runs the same script against the PR diff; a maintainer can bypass it with the `skip-changelog` label for changes with no user or maintainer impact |
-| AI assistants | `CLAUDE.md` makes updating the changelog part of every task |
+| Commit local | `.githooks/pre-commit` ejecuta `scripts/check_changelog.sh --staged`; falla si el `CHANGELOG.md` en stage no agrega al menos una viñeta `- ` |
+| Pull request | El job `changelog` de `pr-validation.yml` ejecuta el mismo script contra el diff del PR; un mantenedor puede omitirlo con la etiqueta `skip-changelog` en cambios sin impacto para usuarios ni mantenedores |
+| Asistentes de IA | `CLAUDE.md` hace que actualizar el changelog sea parte de cada tarea |
 
-## Conventions
+## Convenciones
 
-- All code, identifiers, UI strings, tests, commit messages, PR titles and workflows are in English. `README.md`, `CHANGELOG.md` and `CLAUDE.md` are the only documents that may be in Spanish.
-- No code comments: behavior and contracts are documented in this README.
-- `CLAUDE.md` holds the context and rules for AI assistants; keep it in sync with the architecture.
+- Todo el código, identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR y workflows están en inglés. `README.md`, `CHANGELOG.md` y `CLAUDE.md` están en español y son los únicos documentos que pueden estarlo.
+- Sin comentarios en el código: el comportamiento y los contratos se documentan en este README.
+- `CLAUDE.md` contiene el contexto y las reglas para asistentes de IA; mantenlo sincronizado con la arquitectura.
 
-## Known limitations and next steps
+## Limitaciones conocidas y próximos pasos
 
-- `ScannerScreen` and `GalleryPickerScreen` use `camera` and `photo_manager` directly. Next step: abstract them (`CameraService`, `GalleryService`) so they can be tested with doubles.
-- `OpenCvImageProcessor` has no automated tests; on-device integration tests with sample images could be added.
-- UI strings are hard-coded; localization (`flutter gen-l10n`) is missing.
-- No metadata persistence beyond the file system (no search or tags).
-- Release signing, iOS distribution and automatic version bumping are not configured.
+- `ScannerScreen` y `GalleryPickerScreen` usan `camera` y `photo_manager` directamente. Siguiente paso: abstraerlos (`CameraService`, `GalleryService`) para poder probarlos con dobles.
+- `OpenCvImageProcessor` no tiene pruebas automatizadas; se podrían agregar pruebas de integración en dispositivo con imágenes de muestra.
+- Los textos de la interfaz están escritos directamente en el código; falta localización (`flutter gen-l10n`).
+- No hay persistencia de metadatos más allá del sistema de archivos (sin búsqueda ni etiquetas).
+- No están configurados la firma de release, la distribución en iOS ni el versionado automático.

@@ -1,66 +1,66 @@
 # CLAUDE.md
 
-Context and working rules for AI assistants in this repository. Read `README.md` for the architecture, contracts and CI details; this file is the short operational summary.
+Contexto y reglas de trabajo para asistentes de IA en este repositorio. Lee `README.md` para la arquitectura, los contratos y los detalles de CI; este archivo es el resumen operativo.
 
-## What the app is
+## Qué es la app
 
-Mi Scan is a Flutter (Dart ^3.12, Flutter 3.44) document scanner for Android and iOS: live edge detection with OpenCV, perspective crop with filters, multi-page PDF export and sharing. It is a portfolio project, so code quality, architecture and tests matter as much as features.
+Mi Scan es un escáner de documentos hecho con Flutter (Dart ^3.12, Flutter 3.44) para Android e iOS: detección de bordes en vivo con OpenCV, recorte con corrección de perspectiva y filtros, exportación a PDF de varias páginas y compartir. Es un proyecto de portafolio, así que la calidad del código, la arquitectura y las pruebas importan tanto como las funcionalidades.
 
-Package name `mi_scan`, Android id `com.appinc.mi_scan`. No backend, no database: documents are `name.pdf` plus a `name.pdf.jpg` thumbnail in the app documents directory.
+Paquete `mi_scan`, id de Android `com.appinc.mi_scan`. Sin backend ni base de datos: los documentos son `nombre.pdf` más una miniatura `nombre.pdf.jpg` en el directorio de documentos de la app.
 
-## Architecture (Clean Architecture)
+## Arquitectura (Clean Architecture)
 
 ```
 presentation ──▶ domain ◀── data        core/di = composition root
 ```
 
-- `lib/domain`: pure Dart (entities, repository and service interfaces, use cases). No Flutter, no plugins.
-- `lib/data`: implementations (`FileDocumentRepository`, `OpenCvImageProcessor`, PDF, share, directories).
-- `lib/presentation`: screens and `ChangeNotifier` controllers (`HomeController`, `ScanSession`). Screens receive dependencies through constructors.
-- `lib/core/di/service_locator.dart`: the only place that knows concrete classes (`get_it`). Do not call `sl` from screens or domain code.
-- `ScanSession` is the facade the scanner screens use for pages, detection, cropping and PDF creation.
-- `Quad` holds four points normalized to 0..1 ordered top-left, top-right, bottom-right, bottom-left.
+- `lib/domain`: Dart puro (entidades, interfaces de repositorios y servicios, casos de uso). Sin Flutter ni plugins.
+- `lib/data`: implementaciones (`FileDocumentRepository`, `OpenCvImageProcessor`, PDF, compartir, directorios).
+- `lib/presentation`: pantallas y controladores `ChangeNotifier` (`HomeController`, `ScanSession`). Las pantallas reciben sus dependencias por constructor.
+- `lib/core/di/service_locator.dart`: el único lugar que conoce las clases concretas (`get_it`). No llames a `sl` desde pantallas ni desde el dominio.
+- `ScanSession` es la fachada que usan las pantallas del escáner para páginas, detección, recorte y creación del PDF.
+- `Quad` guarda cuatro puntos normalizados a 0..1, ordenados arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda.
 
-Known gaps: `ScannerScreen` and `GalleryPickerScreen` use `camera` and `photo_manager` directly (not abstracted, little test coverage); `OpenCvImageProcessor` has no automated tests.
+Brechas conocidas: `ScannerScreen` y `GalleryPickerScreen` usan `camera` y `photo_manager` directamente (sin abstraer y con poca cobertura de pruebas); `OpenCvImageProcessor` no tiene pruebas automatizadas.
 
-## Commands
+## Comandos
 
 ```bash
 flutter pub get
 flutter analyze --fatal-infos --fatal-warnings
-dart tool/check_english.dart            # use `dart tool/...`, not `dart run` (slow in this project)
-flutter test                            # unit + widget tests
-flutter test integration_test -d <id>   # needs a simulator/device
-./scripts/check_quality.sh              # analyzer + changelog + English checks
-./scripts/install_hooks.sh              # once per clone
+dart tool/check_english.dart            # usa `dart tool/...`, no `dart run` (lento en este proyecto)
+flutter test                            # pruebas unitarias + de widgets
+flutter test integration_test -d <id>   # requiere simulador/dispositivo
+./scripts/check_quality.sh              # analizador + changelog + verificación de inglés
+./scripts/install_hooks.sh              # una vez por clon
 ```
 
-## Rules for every change
+## Reglas para todo cambio
 
-1. **English only** for identifiers, UI strings, tests, commit messages, PR titles, branch names and workflows. `tool/check_english.dart` enforces it. Exception: `README.md`, `CHANGELOG.md` and this file may be in Spanish or English; keep each file in one language and match the language it is already written in.
-2. **No code comments.** Document behavior and contracts in `README.md` instead (see "Contracts worth knowing"). Prefer clear names over explanation.
-3. **Update `CHANGELOG.md`** under `## [Unreleased]` for every change to files or new resource, including AI-authored work. The pre-commit hook and CI fail otherwise.
-4. **Add or update tests** with the change. Put test doubles in `test/helpers/fakes.dart`; use `mocktail` only for interaction checks.
-5. **Respect the dependency rule**: domain never imports `data`, `presentation` or Flutter; presentation depends on domain interfaces.
-6. **Update `README.md`** when architecture, contracts or workflows change, and this file when its content becomes stale.
-7. **Lints are strict**: unused imports, wrong directive order and similar are errors. Single quotes, no `print`.
+1. **Solo inglés** en identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepción: `README.md`, `CHANGELOG.md` y este archivo están en español; mantén cada archivo en un solo idioma.
+2. **Sin comentarios en el código.** Documenta el comportamiento y los contratos en `README.md` (ver "Contratos importantes"). Prefiere nombres claros a las explicaciones.
+3. **Actualiza `CHANGELOG.md`** bajo `## [Sin publicar]` en todo cambio de archivos o recurso nuevo, incluido el trabajo hecho por IA. El hook de pre-commit y CI fallan si no lo haces.
+4. **Agrega o actualiza pruebas** junto con el cambio. Pon los dobles de prueba en `test/helpers/fakes.dart`; usa `mocktail` solo para verificar interacciones.
+5. **Respeta la regla de dependencia**: el dominio nunca importa `data`, `presentation` ni Flutter; presentation depende de interfaces del dominio.
+6. **Actualiza `README.md`** cuando cambien la arquitectura, los contratos o los workflows, y este archivo cuando su contenido quede desactualizado.
+7. **Los lints son estrictos**: imports sin usar, orden incorrecto de directivas y similares son errores. Comillas simples, sin `print`.
 
-## Git conventions
+## Convenciones de git
 
-- Branches: `<type>/<kebab-case>` with type in `feature bugfix hotfix release chore docs refactor test ci`. Feature work targets `develop`; `release/*` and `hotfix/*` target `main`.
-- Commits and PR titles: Conventional Commits, `<type>(<scope>)?: <description>`.
-- Do not commit `img.png` (a reference screenshot, git-ignored), `build/`, `.dart_tool/` or `local.properties`.
-- Commit and PR attribution lines are added per the session instructions.
+- Ramas: `<type>/<kebab-case>` con type en `feature bugfix hotfix release chore docs refactor test ci`. El trabajo de features apunta a `develop`; `release/*` y `hotfix/*` apuntan a `main`.
+- Commits y títulos de PR: Conventional Commits, `<type>(<scope>)?: <description>`, en inglés.
+- No hagas commit de `img.png` (captura de referencia ignorada por git), `build/`, `.dart_tool/` ni `local.properties`.
+- Las líneas de atribución de commits y PRs se agregan según las instrucciones de la sesión.
 
 ## CI
 
-- `pr-validation.yml`: branch name, PR title, ASCII check, analyzer, English check, changelog.
-- `ci.yml`: analyzer, English check and tests on `develop` and PRs.
-- `firebase-distribution.yml`: Android release APK to Firebase App Distribution (manual or `v*` tag); needs the `FIREBASE_ANDROID_APP_ID` and `FIREBASE_SERVICE_ACCOUNT_JSON` secrets.
+- `pr-validation.yml`: nombre de rama, título del PR, verificación ASCII, analizador, verificación de inglés y changelog.
+- `ci.yml`: analizador, verificación de inglés y pruebas en `develop` y en PRs.
+- `firebase-distribution.yml`: APK release de Android a Firebase App Distribution (manual o tag `v*`); requiere los secretos `FIREBASE_ANDROID_APP_ID` y `FIREBASE_SERVICE_ACCOUNT_JSON`.
 
-## Gotchas
+## Detalles a tener en cuenta
 
-- `opencv_dart` needs native assets; the first iOS/Android build is slow. Camera and live detection only work on a real device.
-- Dart 3.12 private named parameters are used (`required this._createDocument` in `ScanSession`); callers pass `createDocument:`.
-- Widget tests that touch real file I/O or image decoding need `tester.runAsync` and several short pump cycles (see `crop_screen_test.dart`).
-- The release build is signed with the debug key; fine for internal testing only.
+- `opencv_dart` necesita assets nativos; el primer build de iOS/Android es lento. La cámara y la detección en vivo solo funcionan en un dispositivo real.
+- Se usan los parámetros nombrados privados de Dart 3.12 (`required this._createDocument` en `ScanSession`); quien llama pasa `createDocument:`.
+- Las pruebas de widgets que tocan E/S de archivos reales o decodificación de imágenes necesitan `tester.runAsync` y varios ciclos cortos de `pump` (ver `crop_screen_test.dart`).
+- El build release está firmado con la clave debug; solo sirve para pruebas internas.

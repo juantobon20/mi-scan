@@ -1,31 +1,31 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
+Todos los cambios relevantes de este proyecto se documentan en este archivo.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). See the "Changelog policy" section of the README for the rules every change must follow.
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/). Consulta la sección "Política de changelog" del README para conocer las reglas que debe seguir todo cambio.
 
-## [Unreleased]
+## [Sin publicar]
 
-### Added
-- `CHANGELOG.md` and a changelog policy enforced by the pre-commit hook (`scripts/check_changelog.sh`) and by the `PR validation` workflow.
-- `CLAUDE.md` with the project context and working rules for AI assistants.
+### Añadido
+- `CHANGELOG.md` y una política de changelog aplicada por el hook de pre-commit (`scripts/check_changelog.sh`) y por el workflow `PR validation`.
+- `CLAUDE.md` con el contexto del proyecto y las reglas de trabajo para asistentes de IA.
 
-### Changed
-- `README.md`, `CHANGELOG.md` and `CLAUDE.md` are excluded from `tool/check_english.dart` and may be written in Spanish or English.
+### Cambiado
+- `README.md`, `CHANGELOG.md` y `CLAUDE.md` se excluyen de `tool/check_english.dart` y están escritos en español.
 
 ## [1.0.0] - 2026-10-06
 
-### Added
-- Document scanner with live edge detection (OpenCV, Canny + contours) running in an isolate.
-- Gallery import with multi-selection (HEIC converted to JPEG on iOS).
-- Crop editor with draggable corners, automatic detection and filters: Original, Enhanced, Grayscale, Black & White.
-- Page review: reorder, rotate, delete and add pages.
-- Multi-page PDF generation with thumbnail; share, rename and delete saved documents.
-- Material 3 light and dark themes.
-- Clean architecture (domain, data, presentation) with `get_it` dependency injection.
-- Unit, widget and integration test suites.
-- Strict analyzer rules, English-only check (`tool/check_english.dart`) and Git hooks (`.githooks/`).
-- GitHub Actions: PR validation, CI on `develop` and Firebase App Distribution for Android.
+### Añadido
+- Escáner de documentos con detección de bordes en vivo (OpenCV, Canny + contornos) ejecutada en un isolate.
+- Importación desde la galería con selección múltiple (HEIC se convierte a JPEG en iOS).
+- Editor de recorte con esquinas arrastrables, detección automática y filtros: Original, Enhanced, Grayscale, B&W.
+- Revisión de páginas: reordenar, rotar, eliminar y agregar páginas.
+- Generación de PDF de varias páginas con miniatura; compartir, renombrar y eliminar documentos guardados.
+- Temas claro y oscuro Material 3.
+- Clean Architecture (domain, data, presentation) con inyección de dependencias mediante `get_it`.
+- Suites de pruebas unitarias, de widgets y de integración.
+- Reglas estrictas del analizador, verificación de solo inglés (`tool/check_english.dart`) y Git hooks (`.githooks/`).
+- GitHub Actions: validación de PR, CI en `develop` y Firebase App Distribution para Android.
 
-### Changed
-- UI strings, identifiers, tests and documentation are in English; in-code comments were removed in favor of the README.
+### Cambiado
+- Los textos de la interfaz, identificadores y pruebas están en inglés; se eliminaron los comentarios del código a favor del README.

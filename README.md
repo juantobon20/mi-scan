@@ -252,14 +252,29 @@ Nombre de rama: `<tipo>/<kebab-case>`, por ejemplo `feature/add-flash-toggle`. L
 
 ### Protección de ramas
 
-Configurar en GitHub, *Settings → Rules → Rulesets* (o *Branches → Branch protection rules*).
+Las reglas están como código en `.github/rulesets/` (`main.json`, `develop.json`, `tags.json`) y se aplican con un script, o manualmente en *Settings → Rules → Rulesets*:
+
+```bash
+GITHUB_TOKEN=<token con permiso Administration: write> ./scripts/apply_github_rules.sh <owner>/<repo>
+```
+
+El script también desactiva el merge por rebase, activa el borrado automático de ramas integradas y deja el título del PR como mensaje del squash. Ejecútalo después del primer push y de la primera corrida de los workflows (los checks obligatorios deben existir). Si una regla con el mismo nombre ya existe, bórrala antes de volver a aplicarla.
+
+**Quién puede integrar en `main` y `develop`: solo el dueño del repositorio.**
+
+- `.github/CODEOWNERS` asigna todo el código al dueño y los rulesets exigen **revisión del code owner** y 1 aprobación: nadie más puede integrar un PR sin la aprobación del dueño.
+- El rol *Admin* (el dueño) figura como actor con bypass **solo vía pull request**: puede integrar su propio PR sin esperar una aprobación que GitHub no le permite darse a sí mismo, pero sigue obligado a usar un PR (no puede hacer push directo). No agregues colaboradores con rol *Admin*.
+- Si otra cuenta abre el PR (un colaborador, un bot o un agente de IA con su propio token), el dueño lo revisa, lo aprueba y lo integra. Si el PR lo abre la cuenta del dueño, la revisión se hace antes de pulsar el botón de merge.
+- Los colaboradores con rol *Write* pueden abrir ramas y PRs, pero no integrar.
+- Los tags `v*` solo los puede crear el dueño.
+- Las reglas de ramas protegidas requieren un repositorio **público**, o un plan GitHub Pro/Team si es privado.
 
 **`main` — protegida (estricta)**
 
 - Requerir pull request antes de integrar; bloquear pushes directos.
 - Checks obligatorios: `Branch and title conventions`, `Lint and language check`, `Changelog updated` y `Analyze and test`. Los nombres solo aparecen en la lista después de la primera ejecución de los workflows.
 - Requerir que la rama esté actualizada con la base antes de integrar.
-- Requerir resolución de conversaciones. Aprobaciones: 1 si hay más personas en el equipo; 0 si trabajas solo (no puedes aprobar tu propio PR).
+- Requerir resolución de conversaciones y 1 aprobación del code owner (el dueño); el dueño integra con bypass solo vía PR (ver arriba).
 - Bloquear force push y eliminación de la rama. Incluir a los administradores.
 - Métodos de merge permitidos: solo merge commit.
 

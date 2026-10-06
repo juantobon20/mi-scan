@@ -10,6 +10,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - `CHANGELOG.md` y una política de changelog aplicada por el hook de pre-commit (`scripts/check_changelog.sh`) y por el workflow `PR validation`.
 - `CLAUDE.md` con el contexto del proyecto y las reglas de trabajo para asistentes de IA.
 - Estrategia de ramas (GitFlow simplificado), flujos de trabajo, release y hotfix, y reglas de protección de ramas y tags en el README.
+- Reglas de protección como código (`.github/rulesets/`), `.github/CODEOWNERS` y `scripts/apply_github_rules.sh`: solo el dueño del repositorio puede integrar en `main` y `develop`, y los tags `v*` están protegidos.
 
 ### Cambiado
 - `pr-validation.yml` permite el PR de back-merge `main → develop`.

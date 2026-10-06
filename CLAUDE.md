@@ -47,7 +47,8 @@ flutter test integration_test -d <id>   # requiere simulador/dispositivo
 
 ## Convenciones de git
 
-- Ramas: `<type>/<kebab-case>` con type en `feature bugfix hotfix release chore docs refactor test ci`. El trabajo de features apunta a `develop`; `release/*` y `hotfix/*` apuntan a `main`.
+- Ramas: GitFlow simplificado (`main` + `develop` protegidas, ramas de vida corta). Detalle y reglas de protección en el README, sección "Estrategia de ramas". Nombre `<type>/<kebab-case>` con type en `feature bugfix hotfix release chore docs refactor test ci`; las de trabajo salen de `develop` y vuelven a `develop` con squash; `release/*` y `hotfix/*` apuntan a `main` con merge commit, seguidos de un back-merge `main → develop`.
+- Nunca hagas push directo a `main` ni a `develop`, ni crees tags `v*` sin que lo pida el usuario (un tag publica en Firebase).
 - Commits y títulos de PR: Conventional Commits, `<type>(<scope>)?: <description>`, en inglés.
 - No hagas commit de `img.png` (captura de referencia ignorada por git), `build/`, `.dart_tool/` ni `local.properties`.
 - Las líneas de atribución de commits y PRs se agregan según las instrucciones de la sesión.

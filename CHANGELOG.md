@@ -9,8 +9,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ### Añadido
 - `CHANGELOG.md` y una política de changelog aplicada por el hook de pre-commit (`scripts/check_changelog.sh`) y por el workflow `PR validation`.
 - `CLAUDE.md` con el contexto del proyecto y las reglas de trabajo para asistentes de IA.
+- Estrategia de ramas (GitFlow simplificado), flujos de trabajo, release y hotfix, y reglas de protección de ramas y tags en el README.
 
 ### Cambiado
+- `pr-validation.yml` permite el PR de back-merge `main → develop`.
+- `firebase-distribution.yml` rechaza tags `v*` que no estén en `main`.
 - Todos los archivos `.md` (`README.md`, `CHANGELOG.md`, `CLAUDE.md` y la plantilla de PR) están en español y `tool/check_english.dart` ya no los revisa.
 
 ## [1.0.0] - 2026-10-06

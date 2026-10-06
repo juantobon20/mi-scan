@@ -186,10 +186,7 @@ La verificación de inglés marca letras latinas con acento, signos de puntuaci�
 | `ci.yml` | Push (merge) a `develop`, PRs | Analizador, verificación de inglés, `flutter test --coverage`, sube `lcov.info` |
 | `firebase-distribution.yml` | Ejecución manual o tag `v*` | Control de calidad, compilación del APK release y subida a Firebase App Distribution |
 
-**Nombres de rama:** `<type>/<kebab-case-description>` con type en `feature bugfix hotfix release chore docs refactor test ci`, por ejemplo `feature/add-flash-toggle`.
-
-- Las ramas `feature`, `bugfix`, `chore`, `docs`, `refactor`, `test` y `ci` apuntan a `develop`.
-- Las ramas `release/*` y `hotfix/*` apuntan a `main`; `develop` también puede fusionarse en `main`.
+Los nombres de rama y los destinos de cada tipo de rama están en [Estrategia de ramas](#estrategia-de-ramas).
 
 **Título del PR:** `<type>(<scope>)?: <description>` (Conventional Commits), por ejemplo `feat(scanner): add flash toggle`.
 
@@ -201,6 +198,96 @@ La verificación de inglés marca letras latinas con acento, signos de puntuaci�
 4. Ejecuta el workflow manualmente (eligiendo grupos y notas de versión) o sube un tag como `v1.0.0`.
 
 Notas: el build release está firmado actualmente con la clave debug (`android/app/build.gradle.kts`), lo cual sirve para pruebas internas pero no para Play Store. La distribución en iOS no está configurada porque requiere certificados de firma y perfiles de aprovisionamiento. Configuración recomendada del repositorio: proteger `develop` y `main`, exigir los checks `PR validation` y `CI`, y usar squash merge para que el título del PR sea el mensaje del commit.
+
+## Estrategia de ramas
+
+Se usa un **GitFlow simplificado**: dos ramas permanentes y ramas de vida corta que siempre se integran mediante pull request. Es la estrategia que asumen los workflows (`ci.yml` corre en `develop`, `firebase-distribution.yml` publica desde tags en `main`).
+
+```
+main      ●───────────────●───────────────●──────  producción, solo recibe PRs; cada commit = versión con tag vX.Y.Z
+           \             ↗ ↘               ↗ ↘
+develop    ●──●──●──●──●───●──●──●──●──●───●────  integración continua, siempre verde
+            \  ↗ \  ↗
+feature/*    ●─●   ●─●                            una rama por cambio, vida corta
+```
+
+### Ramas
+
+| Rama | Se crea desde | Se integra en | Vida | Propósito |
+|---|---|---|---|---|
+| `main` | — | — | Permanente | Código publicable. Cada merge corresponde a una versión con tag `vX.Y.Z` |
+| `develop` | `main` | `main` (PR) | Permanente | Integración de todo el trabajo; CI corre en cada merge |
+| `feature/<nombre>` | `develop` | `develop` | Corta | Funcionalidad nueva |
+| `bugfix/<nombre>` | `develop` | `develop` | Corta | Corrección de un bug no urgente |
+| `refactor/<nombre>` | `develop` | `develop` | Corta | Mejora interna sin cambio funcional |
+| `test/<nombre>` | `develop` | `develop` | Corta | Solo pruebas |
+| `docs/<nombre>` | `develop` | `develop` | Corta | Solo documentación |
+| `chore/<nombre>` | `develop` | `develop` | Corta | Dependencias, configuración, mantenimiento |
+| `ci/<nombre>` | `develop` | `develop` | Corta | Workflows, hooks y scripts |
+| `release/<x.y.z>` | `develop` | `main` | Corta | Estabilización opcional antes de publicar: subir `version` en `pubspec.yaml` y cerrar `[Sin publicar]` en el changelog |
+| `hotfix/<nombre>` | `main` | `main` | Muy corta | Corrección urgente en producción |
+
+Nombre de rama: `<tipo>/<kebab-case>`, por ejemplo `feature/add-flash-toggle`. La validación del PR rechaza otros formatos y destinos incorrectos.
+
+### Flujos
+
+**Trabajo diario**
+
+1. `git switch develop && git pull`, luego `git switch -c feature/add-flash-toggle`.
+2. Commits con Conventional Commits y entrada en `CHANGELOG.md`.
+3. PR hacia `develop` con título `feat(scanner): add flash toggle`; esperar los checks.
+4. **Squash merge**: el título del PR queda como único commit en `develop`, lo que mantiene el historial lineal y legible. Se borra la rama.
+
+**Publicar una versión**
+
+1. Con `develop` estable, abrir un PR `develop → main` (o `release/x.y.z → main` si hace falta estabilizar: subir la versión y cerrar el changelog ahí).
+2. **Merge commit** (sin squash) para conservar el historial de `develop`.
+3. Crear el tag en `main`: `git tag v1.1.0 && git push origin v1.1.0`. Esto dispara el APK a Firebase App Distribution (el workflow rechaza tags que no estén en `main`).
+4. **Back-merge**: abrir un PR `main → develop` (merge commit) para que `develop` reciba el commit de merge y cualquier ajuste hecho en `main`.
+
+**Hotfix**
+
+1. `git switch main && git pull`, luego `git switch -c hotfix/fix-pdf-crash`.
+2. PR hacia `main` (merge commit), tag de parche (`v1.1.1`) y back-merge `main → develop`.
+
+### Protección de ramas
+
+Configurar en GitHub, *Settings → Rules → Rulesets* (o *Branches → Branch protection rules*).
+
+**`main` — protegida (estricta)**
+
+- Requerir pull request antes de integrar; bloquear pushes directos.
+- Checks obligatorios: `Branch and title conventions`, `Lint and language check`, `Changelog updated` y `Analyze and test`. Los nombres solo aparecen en la lista después de la primera ejecución de los workflows.
+- Requerir que la rama esté actualizada con la base antes de integrar.
+- Requerir resolución de conversaciones. Aprobaciones: 1 si hay más personas en el equipo; 0 si trabajas solo (no puedes aprobar tu propio PR).
+- Bloquear force push y eliminación de la rama. Incluir a los administradores.
+- Métodos de merge permitidos: solo merge commit.
+
+**`develop` — protegida**
+
+- Requerir pull request y los mismos checks obligatorios; bloquear pushes directos.
+- Bloquear force push y eliminación.
+- Métodos de merge permitidos: squash (y merge commit para el back-merge desde `main`).
+
+**Tags `v*` — protegidos con un ruleset de tags**
+
+- Solo los mantenedores pueden crearlos; bloquear actualización y eliminación. Un tag dispara la publicación en Firebase, así que debe tratarse como una acción privilegiada.
+- Recomendado: asociar el job de `firebase-distribution.yml` a un *environment* con revisores requeridos y mover ahí los secretos de Firebase.
+
+**Ramas de trabajo (`feature/*`, `bugfix/*`, `hotfix/*`, `release/*`, ...) — sin protección**
+
+- Son de vida corta y de quien las crea; la protección está en el PR hacia `develop` o `main`.
+- Activar *Automatically delete head branches* para que se borren al integrar.
+
+**Ajustes generales del repositorio**
+
+- Desactivar *Allow rebase merging*; dejar squash y merge commit.
+- Squash por defecto con *Pull request title* como mensaje del commit.
+- Rama por defecto: `develop` (los PRs y `git clone` apuntan al trabajo activo). Si prefieres que el repositorio muestre lo publicado, deja `main`; los workflows funcionan igual.
+
+### Alternativa más simple
+
+Si el proyecto sigue siendo de una sola persona, se puede omitir `develop` y trabajar con *trunk-based*: ramas de vida corta hacia `main`, squash merge y tag por versión. Se pierde la rama de integración y habría que cambiar `ci.yml`, `pr-validation.yml` y esta sección. Se mantiene GitFlow simplificado porque demuestra un flujo de equipo con releases controlados, que es el objetivo del portafolio.
 
 ## Política de changelog
 

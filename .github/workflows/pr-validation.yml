@@ -24,6 +24,10 @@ jobs:
             exit 0
           fi
 
+          if [ "$HEAD_BRANCH" = "main" ] && [ "$BASE_BRANCH" = "develop" ]; then
+            exit 0
+          fi
+
           if ! echo "$HEAD_BRANCH" | grep -qE "$branch_pattern"; then
             echo "::error::Invalid branch name '$HEAD_BRANCH'."
             echo "Expected <type>/<kebab-case-description> with type in: feature, bugfix, hotfix, release, chore, docs, refactor, test, ci."

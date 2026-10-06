@@ -11,7 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `CLAUDE.md` with the project context and working rules for AI assistants.
 
 ### Changed
-- `tool/check_english.dart` now also checks `CHANGELOG.md` and `CLAUDE.md`.
+- `README.md`, `CHANGELOG.md` and `CLAUDE.md` are excluded from `tool/check_english.dart` and may be written in Spanish or English.
 
 ## [1.0.0] - 2026-10-06
 

@@ -166,7 +166,7 @@ Local checks (run on every commit and in CI):
 | English-only code, strings and docs | `dart tool/check_english.dart` |
 | Conventional commit messages | `.githooks/commit-msg` |
 
-The English check flags accented Latin letters, inverted Spanish punctuation and non-Latin scripts (Cyrillic, CJK, ...) and a curated list of distinctive Spanish words (`tool/spanish_words.txt`) found in identifiers, strings and docs of `lib/`, `test/`, `integration_test/`, `README.md` and `.github/`. It is a heuristic, not a translator: extend the word list when a new false negative shows up. The checker has its own tests in `test/tool/`.
+The English check flags accented Latin letters, inverted Spanish punctuation and non-Latin scripts (Cyrillic, CJK, ...) and a curated list of distinctive Spanish words (`tool/spanish_words.txt`) found in identifiers, strings and docs of `lib/`, `test/`, `integration_test/`, and `.github/`. `README.md`, `CHANGELOG.md` and `CLAUDE.md` are excluded and may be written in Spanish or English. It is a heuristic, not a translator: extend the word list when a new false negative shows up. The checker has its own tests in `test/tool/`.
 
 ### Git hooks
 
@@ -207,7 +207,7 @@ Notes: the release build is currently signed with the debug key (`android/app/bu
 Every change to project files, and every new resource (code, tests, assets, dependencies, CI, scripts), must add an entry to [`CHANGELOG.md`](CHANGELOG.md) under `## [Unreleased]`. This applies equally to human and AI-authored changes.
 
 - Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with the sections `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` and `Security`.
-- Write one bullet per change, in English, describing the effect for users or maintainers rather than the file touched.
+- Write one bullet per change, in Spanish or English, describing the effect for users or maintainers rather than the file touched.
 - On release, rename `[Unreleased]` to the new version and date, and open a fresh `[Unreleased]` section.
 - Exempt files: `CHANGELOG.md`, `README.md`, `CLAUDE.md`, `.gitignore`, `pubspec.lock`, `.metadata`.
 
@@ -221,7 +221,7 @@ Enforcement:
 
 ## Conventions
 
-- All code, identifiers, UI strings and tests are in English.
+- All code, identifiers, UI strings, tests, commit messages, PR titles and workflows are in English. `README.md`, `CHANGELOG.md` and `CLAUDE.md` are the only documents that may be in Spanish.
 - No code comments: behavior and contracts are documented in this README.
 - `CLAUDE.md` holds the context and rules for AI assistants; keep it in sync with the architecture.
 

@@ -37,7 +37,7 @@ flutter test integration_test -d <id>   # needs a simulator/device
 
 ## Rules for every change
 
-1. **English only.** Identifiers, UI strings, tests, docs, commit messages, PR titles and branch names. `tool/check_english.dart` enforces it.
+1. **English only** for identifiers, UI strings, tests, commit messages, PR titles, branch names and workflows. `tool/check_english.dart` enforces it. Exception: `README.md`, `CHANGELOG.md` and this file may be in Spanish or English; keep each file in one language and match the language it is already written in.
 2. **No code comments.** Document behavior and contracts in `README.md` instead (see "Contracts worth knowing"). Prefer clear names over explanation.
 3. **Update `CHANGELOG.md`** under `## [Unreleased]` for every change to files or new resource, including AI-authored work. The pre-commit hook and CI fail otherwise.
 4. **Add or update tests** with the change. Put test doubles in `test/helpers/fakes.dart`; use `mocktail` only for interaction checks.

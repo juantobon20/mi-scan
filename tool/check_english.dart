@@ -64,9 +64,6 @@ List<String> defaultTargets() {
       if (entity is File && entity.path.endsWith('.dart')) files.add(entity.path);
     }
   }
-  for (final doc in ['README.md', 'CHANGELOG.md', 'CLAUDE.md']) {
-    if (File(doc).existsSync()) files.add(doc);
-  }
   final workflows = Directory('.github');
   if (workflows.existsSync()) {
     for (final entity in workflows.listSync(recursive: true)) {
@@ -78,7 +75,10 @@ List<String> defaultTargets() {
   return files.where((f) => !_isExcluded(f)).toList();
 }
 
-bool _isExcluded(String path) => path.startsWith('tool/') || path.startsWith('test/tool/');
+const _spanishAllowedDocs = {'README.md', 'CHANGELOG.md', 'CLAUDE.md'};
+
+bool _isExcluded(String path) =>
+    path.startsWith('tool/') || path.startsWith('test/tool/') || _spanishAllowedDocs.contains(path);
 
 bool _isChecked(String path) {
   if (_isExcluded(path)) return false;

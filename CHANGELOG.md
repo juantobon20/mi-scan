@@ -11,7 +11,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - `CLAUDE.md` con el contexto del proyecto y las reglas de trabajo para asistentes de IA.
 
 ### Cambiado
-- `README.md`, `CHANGELOG.md` y `CLAUDE.md` se excluyen de `tool/check_english.dart` y están escritos en español.
+- Todos los archivos `.md` (`README.md`, `CHANGELOG.md`, `CLAUDE.md` y la plantilla de PR) están en español y `tool/check_english.dart` ya no los revisa.
 
 ## [1.0.0] - 2026-10-06
 

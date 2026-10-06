@@ -1,16 +1,16 @@
-## Summary
+## Resumen
 
-What does this change do and why?
+¿Qué hace este cambio y por qué?
 
-## Changes
+## Cambios
 
 -
 
-## Checklist
+## Lista de verificación
 
-- [ ] Branch name follows `<type>/<kebab-case-description>`
-- [ ] PR title follows `<type>(<scope>): <description>`
-- [ ] `./scripts/check_quality.sh` passes locally
-- [ ] `CHANGELOG.md` updated under `[Unreleased]` (or the `skip-changelog` label is justified)
-- [ ] Tests added or updated
-- [ ] Code, strings and docs are in English
+- [ ] El nombre de la rama sigue `<type>/<kebab-case-description>`
+- [ ] El título del PR sigue `<type>(<scope>): <description>` (en inglés)
+- [ ] `./scripts/check_quality.sh` pasa en local
+- [ ] `CHANGELOG.md` actualizado bajo `[Sin publicar]` (o la etiqueta `skip-changelog` está justificada)
+- [ ] Pruebas agregadas o actualizadas
+- [ ] El código, los textos de la interfaz y los workflows están en inglés

@@ -37,7 +37,7 @@ flutter test integration_test -d <id>   # requiere simulador/dispositivo
 
 ## Reglas para todo cambio
 
-1. **Solo inglés** en identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepción: `README.md`, `CHANGELOG.md` y este archivo están en español; mantén cada archivo en un solo idioma.
+1. **Solo inglés** en identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepción: todos los archivos `.md` (`README.md`, `CHANGELOG.md`, este archivo y la plantilla de PR) están en español; mantén cada archivo en un solo idioma.
 2. **Sin comentarios en el código.** Documenta el comportamiento y los contratos en `README.md` (ver "Contratos importantes"). Prefiere nombres claros a las explicaciones.
 3. **Actualiza `CHANGELOG.md`** bajo `## [Sin publicar]` en todo cambio de archivos o recurso nuevo, incluido el trabajo hecho por IA. El hook de pre-commit y CI fallan si no lo haces.
 4. **Agrega o actualiza pruebas** junto con el cambio. Pon los dobles de prueba en `test/helpers/fakes.dart`; usa `mocktail` solo para verificar interacciones.

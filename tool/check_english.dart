@@ -67,7 +67,7 @@ List<String> defaultTargets() {
   final workflows = Directory('.github');
   if (workflows.existsSync()) {
     for (final entity in workflows.listSync(recursive: true)) {
-      if (entity is File && (entity.path.endsWith('.yml') || entity.path.endsWith('.md'))) {
+      if (entity is File && entity.path.endsWith('.yml')) {
         files.add(entity.path);
       }
     }
@@ -75,14 +75,12 @@ List<String> defaultTargets() {
   return files.where((f) => !_isExcluded(f)).toList();
 }
 
-const _spanishAllowedDocs = {'README.md', 'CHANGELOG.md', 'CLAUDE.md'};
-
 bool _isExcluded(String path) =>
-    path.startsWith('tool/') || path.startsWith('test/tool/') || _spanishAllowedDocs.contains(path);
+    path.startsWith('tool/') || path.startsWith('test/tool/');
 
 bool _isChecked(String path) {
   if (_isExcluded(path)) return false;
-  return path.endsWith('.dart') || path.endsWith('.md') || path.endsWith('.yml');
+  return path.endsWith('.dart') || path.endsWith('.yml');
 }
 
 void main(List<String> args) {

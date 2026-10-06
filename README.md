@@ -166,7 +166,7 @@ Verificaciones locales (se ejecutan en cada commit y en CI):
 | Código, textos y documentación solo en inglés | `dart tool/check_english.dart` |
 | Mensajes de commit convencionales | `.githooks/commit-msg` |
 
-La verificación de inglés marca letras latinas con acento, signos de puntuación invertidos del español y alfabetos no latinos (cirílico, CJK, ...), además de una lista curada de palabras distintivas del español (`tool/spanish_words.txt`) encontradas en identificadores, textos y documentos de `lib/`, `test/`, `integration_test/` y `.github/`. `README.md`, `CHANGELOG.md` y `CLAUDE.md` están excluidos y pueden escribirse en español o en inglés. Es una heurística, no un traductor: amplía la lista de palabras cuando aparezca un falso negativo nuevo. El verificador tiene sus propias pruebas en `test/tool/`.
+La verificación de inglés marca letras latinas con acento, signos de puntuación invertidos del español y alfabetos no latinos (cirílico, CJK, ...), además de una lista curada de palabras distintivas del español (`tool/spanish_words.txt`) encontradas en identificadores, textos y documentos de `lib/`, `test/`, `integration_test/` y `.github/`. Los archivos `.md` están excluidos: la documentación va en español. Es una heurística, no un traductor: amplía la lista de palabras cuando aparezca un falso negativo nuevo. El verificador tiene sus propias pruebas en `test/tool/`.
 
 ### Git hooks
 
@@ -221,7 +221,7 @@ Cumplimiento:
 
 ## Convenciones
 
-- Todo el código, identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR y workflows están en inglés. `README.md`, `CHANGELOG.md` y `CLAUDE.md` están en español y son los únicos documentos que pueden estarlo.
+- Todo el código, identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR y workflows están en inglés. Toda la documentación (`*.md`: `README.md`, `CHANGELOG.md`, `CLAUDE.md` y la plantilla de PR) está en español.
 - Sin comentarios en el código: el comportamiento y los contratos se documentan en este README.
 - `CLAUDE.md` contiene el contexto y las reglas para asistentes de IA; mantenlo sincronizado con la arquitectura.
 

@@ -1,0 +1,27 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    unused_import: error
+    unnecessary_import: error
+    unused_local_variable: error
+    unused_element: error
+    unused_field: error
+    dead_code: error
+    duplicate_import: error
+    directives_ordering: error
+
+linter:
+  rules:
+    - avoid_print
+    - directives_ordering
+    - prefer_single_quotes
+    - unnecessary_lambdas
+    - unnecessary_parenthesis
+    - unnecessary_string_interpolations
+    - always_declare_return_types
+    - avoid_unused_constructor_parameters
+    - cancel_subscriptions
+    - close_sinks
+    - prefer_final_locals
+    - sort_child_properties_last

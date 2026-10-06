@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+msg_file="$1"
+first_line=$(head -n 1 "$msg_file")
+pattern='^(feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)(\([a-z0-9-]+\))?!?: .{3,}$'
+
+case "$first_line" in
+  Merge\ *|Revert\ *|fixup!*|squash!*) exit 0 ;;
+esac
+
+if ! echo "$first_line" | grep -qE "$pattern"; then
+  echo "Invalid commit message: '$first_line'"
+  echo "Expected: <type>(<scope>)?: <description>   e.g. feat(scanner): add flash toggle"
+  echo "Types: feat fix chore docs refactor test ci perf build style revert"
+  exit 1
+fi
+
+if LC_ALL=C grep -qP '[^\x00-\x7F]' "$msg_file" 2>/dev/null; then
+  echo "Commit message must be in English (ASCII only)."
+  exit 1
+fi

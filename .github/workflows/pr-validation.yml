@@ -1,0 +1,89 @@
+name: PR validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  naming:
+    name: Branch and title conventions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: |
+          branch_pattern='^(feature|bugfix|hotfix|release|chore|docs|refactor|test|ci)/[a-z0-9][a-z0-9._-]*$'
+
+          if [ "$HEAD_BRANCH" = "develop" ] && [ "$BASE_BRANCH" = "main" ]; then
+            exit 0
+          fi
+
+          if ! echo "$HEAD_BRANCH" | grep -qE "$branch_pattern"; then
+            echo "::error::Invalid branch name '$HEAD_BRANCH'."
+            echo "Expected <type>/<kebab-case-description> with type in: feature, bugfix, hotfix, release, chore, docs, refactor, test, ci."
+            echo "Example: feature/add-flash-toggle"
+            exit 1
+          fi
+
+          type="${HEAD_BRANCH%%/*}"
+          case "$BASE_BRANCH" in
+            develop)
+              if [ "$type" = "release" ] || [ "$type" = "hotfix" ]; then
+                echo "::error::'$type/*' branches must target main, not develop."
+                exit 1
+              fi
+              ;;
+            main)
+              if [ "$type" != "release" ] && [ "$type" != "hotfix" ]; then
+                echo "::error::Only release/* and hotfix/* branches (or develop) may target main; '$HEAD_BRANCH' must target develop."
+                exit 1
+              fi
+              ;;
+          esac
+
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          title_pattern='^(feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)(\([a-z0-9-]+\))?!?: .{3,}$'
+          if ! echo "$PR_TITLE" | grep -qE "$title_pattern"; then
+            echo "::error::Invalid PR title '$PR_TITLE'."
+            echo "Expected <type>(<scope>)?: <description>, e.g. 'feat(scanner): add flash toggle'."
+            exit 1
+          fi
+
+      - name: Validate PR title and branch are ASCII English
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          if printf '%s\n%s' "$PR_TITLE" "$HEAD_BRANCH" | LC_ALL=C grep -qP '[^\x00-\x7F]'; then
+            echo "::error::PR title and branch name must be in English (ASCII only)."
+            exit 1
+          fi
+
+  quality:
+    name: Lint and language check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.9
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Static analysis (unused imports, lints)
+        run: flutter analyze --fatal-infos --fatal-warnings
+
+      - name: English-only check
+        run: dart tool/check_english.dart

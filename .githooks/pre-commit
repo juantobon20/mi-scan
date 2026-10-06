@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+if echo "$staged" | grep -qE '\.dart$|pubspec\.yaml$|analysis_options\.yaml$'; then
+  echo "==> flutter analyze (unused imports, lints)"
+  flutter analyze --fatal-infos --fatal-warnings
+fi
+
+echo "==> English-only check"
+# shellcheck disable=SC2086
+dart tool/check_english.dart $staged

@@ -1,0 +1,82 @@
+name: Firebase App Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      groups:
+        description: Comma-separated Firebase tester groups
+        required: false
+        default: testers
+      release_notes:
+        description: Release notes shown to testers
+        required: false
+        default: Manual build from GitHub Actions
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-distribution
+  cancel-in-progress: false
+
+jobs:
+  distribute-android:
+    name: Build and distribute Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.9
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Quality gate
+        run: |
+          flutter analyze --fatal-infos --fatal-warnings
+          dart tool/check_english.dart
+          flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release --build-number=${{ github.run_number }}
+
+      - name: Resolve distribution settings
+        id: settings
+        env:
+          INPUT_GROUPS: ${{ github.event.inputs.groups }}
+          INPUT_NOTES: ${{ github.event.inputs.release_notes }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ]; then
+            echo "groups=testers" >> "$GITHUB_OUTPUT"
+            echo "notes=Release $REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "groups=${INPUT_GROUPS:-testers}" >> "$GITHUB_OUTPUT"
+            echo "notes=${INPUT_NOTES:-Manual build}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          groups: ${{ steps.settings.outputs.groups }}
+          file: build/app/outputs/flutter-apk/app-release.apk
+          releaseNotes: ${{ steps.settings.outputs.notes }}
+
+      - name: Keep the APK as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk

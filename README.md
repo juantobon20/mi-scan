@@ -266,6 +266,34 @@ Nombre de rama: `<tipo>/<kebab-case>`, por ejemplo `feature/add-flash-toggle`. L
 1. `git switch main && git pull`, luego `git switch -c hotfix/fix-pdf-crash`.
 2. PR hacia `main` (merge commit), tag de parche (`v1.1.1`) y back-merge `main → develop`.
 
+### Arreglos durante la estabilización de una release
+
+Mientras una rama `release/x.y.z` se prueba, `develop` sigue recibiendo trabajo nuevo que **no** debe salir en esa versión. Por eso la release se corta desde `develop` en un momento fijo y después sigue su propio camino:
+
+```
+develop        ●──●──●──●──●──●──●──●──────●     siguen entrando features nuevas
+                    \                     ↑
+release/1.1.0        ●──●──(fix)──●──┐    │ back-merge
+                                      \   │
+main                   ●───────────────●───┘     tag v1.1.0
+```
+
+1. **Cortar la release** desde `develop` actualizado: `git switch develop && git pull && git switch -c release/1.1.0`. En esa rama se sube `version` en `pubspec.yaml` y se cierra `[Sin publicar]` en el changelog.
+2. **Corregir en la release.** Si las pruebas encuentran un bug, el arreglo se hace **solo en `release/1.1.0`**, con un commit directo o con una rama corta `bugfix/<nombre>` creada **desde la release** y fusionada de vuelta a ella. Cada arreglo lleva su entrada en el changelog.
+3. **No traer `develop` a la release.** No hagas merge ni rebase de `develop` dentro de `release/x.y.z`: se colarían features que no estaban en esa versión.
+4. **Publicar.** PR `release/x.y.z → main` con merge commit, y tag `vx.y.z` desde `main`.
+5. **Back-merge.** PR `main → develop` con merge commit, para que `develop` reciba los arreglos hechos en la release. Si el mismo bug ya estaba corregido en `develop`, los conflictos se resuelven en ese PR.
+
+**Qué rama usar para cada caso**
+
+| Situación | Rama |
+|---|---|
+| Bug encontrado probando una release en curso | Arreglo **en** `release/x.y.z` (commit directo o `bugfix/*` desde la release) |
+| Bug en producción, versión ya publicada | `hotfix/*` desde `main`, con tag de parche (`vx.y.z+1`) |
+| Bug en `develop` que no afecta a la release | `bugfix/*` hacia `develop` |
+
+Limitaciones actuales: los workflows `ci.yml` y `pr-validation.yml` solo se disparan en PRs hacia `develop` y `main`, y las ramas `release/*` no están protegidas. Un PR `bugfix/* → release/x.y.z` no pasa por validación ni CI; las pruebas de la release se ejecutan al abrir el PR hacia `main`. Para validar también esos PRs habría que extender los workflows a `release/**`.
+
 ### Alternativa más simple
 
 Si el proyecto sigue siendo de una sola persona, se puede omitir `develop` y trabajar con *trunk-based*: ramas de vida corta hacia `main`, squash merge y tag por versión. Se pierde la rama de integración y habría que cambiar `ci.yml`, `pr-validation.yml` y esta sección. Se mantiene GitFlow simplificado porque demuestra un flujo de equipo con releases controlados, que es el objetivo del portafolio.

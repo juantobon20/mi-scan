@@ -6,6 +6,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Añadido
+- El README explica cómo manejar los arreglos durante la estabilización de una release: se corrigen solo en la rama de release, sin traer `develop`, y se propagan con el back-merge `main → develop`.
+
+### Cambiado
+- El README ya no incluye los pasos para crear el keystore, probar la firma en local ni subir los secretos, porque están configurados; se conserva la descripción del flujo y los nombres de los secretos.
+- El README describe que el workflow verifica la firma con `apksigner`.
+- El README ya no documenta la protección de ramas ni los scripts de instalación de hooks, calidad y reglas de GitHub; las ramas ya están protegidas y los hooks se activan con `git config core.hooksPath .githooks`.
+- `.gitignore` ignora las capturas locales `img*.png` de la raíz del repositorio.
+
 ## [1.0.0] - 2026-10-06
 
 Primera versión publicada.

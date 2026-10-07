@@ -170,10 +170,7 @@ La verificación de inglés marca letras latinas con acento, signos de puntuaci�
 
 ### Git hooks
 
-```bash
-./scripts/install_hooks.sh      # configura core.hooksPath a .githooks (una vez después de clonar)
-./scripts/check_quality.sh      # ejecuta las mismas verificaciones manualmente
-```
+Los hooks están en `.githooks/` y se activan con `git config core.hooksPath .githooks`.
 
 - `pre-commit`: política de changelog, analizador y verificación de inglés sobre los archivos en stage.
 - `commit-msg`: exige `<type>(<scope>)?: <description>` en inglés, con type en `feat fix chore docs refactor test ci perf build style revert`.
@@ -190,14 +187,9 @@ Los nombres de rama y los destinos de cada tipo de rama están en [Estrategia de
 
 **Título del PR:** `<type>(<scope>)?: <description>` (Conventional Commits), por ejemplo `feat(scanner): add flash toggle`.
 
-**Configuración de Firebase App Distribution:**
+**Publicar una versión en Firebase App Distribution:** la app de Firebase, el grupo de testers `testers` y los secretos del environment `release` ya están configurados (ver [Firma de release](#firma-de-release-android)). Para publicar, ejecuta el workflow manualmente desde `main` (eligiendo grupos y notas de versión) o sube un tag desde `main`, por ejemplo `v1.0.0`. El job espera tu aprobación del environment `release` antes de usar los secretos.
 
-1. En Firebase, registra la app Android `com.appinc.mi_scan`, habilita App Distribution y crea un grupo de testers (nombre por defecto `testers`).
-2. Crea una cuenta de servicio con el rol *Firebase App Distribution Admin* y descarga su clave JSON.
-3. Agrega los secretos `FIREBASE_ANDROID_APP_ID` (por ejemplo `1:1234567890:android:abc123`) y `FIREBASE_SERVICE_ACCOUNT_JSON` (el contenido completo del JSON) al environment `release`, junto con los de firma (ver [Firma de release](#firma-de-release-android)).
-4. Ejecuta el workflow manualmente (eligiendo grupos y notas de versión) o sube un tag como `v1.0.0`.
-
-Notas: la firma de release se describe en la sección siguiente. La distribución en iOS no está configurada porque requiere certificados de firma y perfiles de aprovisionamiento. Configuración recomendada del repositorio: proteger `develop` y `main`, exigir los checks `PR validation` y `CI`, y usar squash merge para que el título del PR sea el mensaje del commit.
+Notas: la firma de release se describe en la sección siguiente. La distribución en iOS no está configurada porque requiere certificados de firma y perfiles de aprovisionamiento.
 
 ## Firma de release (Android)
 
@@ -210,36 +202,18 @@ El keystore y las contraseñas **nunca están en el código**: `android/app/buil
 | `ANDROID_KEY_ALIAS` | `keyAlias` | Alias de la clave |
 | `ANDROID_KEY_PASSWORD` | `keyPassword` | Contraseña de la clave |
 
-**1. Crear el keystore** (una sola vez; guarda una copia en un gestor de contraseñas: si lo pierdes no podrás actualizar la app en Play Store):
+**Secretos del environment `release`.** El keystore y las credenciales ya están configurados como secretos del environment `release` (despliegue restringido a `main` y a los tags `v*`, con revisor requerido). Solo llegan a los jobs que declaran `environment: release`. Si hay que rotarlos o auditarlos, se gestionan en *Settings → Environments → release*.
 
-```bash
-keytool -genkeypair -v -keystore ~/mi-scan-release.jks -alias mi-scan \
-  -keyalg RSA -keysize 2048 -validity 10000
-```
-
-**2. Probar localmente** creando `android/key.properties` (ignorado por git):
-
-```properties
-storeFile=/ruta/absoluta/mi-scan-release.jks
-storePassword=...
-keyAlias=mi-scan
-keyPassword=...
-```
-
-**3. Subir los secretos a GitHub.** Crea un *environment* llamado `release` en *Settings → Environments*, restringe su despliegue a la rama `main` y a los tags `v*`, y agrega los revisores requeridos (tú). Guarda ahí los secretos de firma y los de Firebase:
-
-| Secreto | Valor |
+| Secreto | Uso |
 |---|---|
-| `ANDROID_KEYSTORE_BASE64` | `base64 -i ~/mi-scan-release.jks \| pbcopy` (macOS) y pegar |
+| `ANDROID_KEYSTORE_BASE64` | Keystore `.jks` codificado en base64 |
 | `ANDROID_KEYSTORE_PASSWORD` | Contraseña del keystore |
 | `ANDROID_KEY_ALIAS` | Alias de la clave |
 | `ANDROID_KEY_PASSWORD` | Contraseña de la clave |
 | `FIREBASE_ANDROID_APP_ID` | Id de la app Android en Firebase |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Clave JSON de la cuenta de servicio |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Clave JSON de la cuenta de servicio de distribución |
 
-Los secretos de un environment solo llegan a los jobs que declaran `environment: release`, y con las restricciones de despliegue no se exponen a ramas arbitrarias. Si ya los habías creado como secretos del repositorio, muévelos al environment y bórralos del nivel de repositorio.
-
-**Qué hace el workflow:** valida que los cuatro secretos de firma existan, restaura el keystore en un directorio temporal del runner, compila el APK firmado, comprueba con `keytool` que el certificado no sea `CN=Android Debug`, lo sube a Firebase y borra el keystore al terminar.
+**Qué hace el workflow:** valida que los cuatro secretos de firma existan, restaura el keystore en un directorio temporal del runner, compila el APK firmado, comprueba con `apksigner` que el certificado no sea `CN=Android Debug`, lo sube a Firebase y borra el keystore al terminar.
 
 ## Estrategia de ramas
 
@@ -292,55 +266,33 @@ Nombre de rama: `<tipo>/<kebab-case>`, por ejemplo `feature/add-flash-toggle`. L
 1. `git switch main && git pull`, luego `git switch -c hotfix/fix-pdf-crash`.
 2. PR hacia `main` (merge commit), tag de parche (`v1.1.1`) y back-merge `main → develop`.
 
-### Protección de ramas
+### Arreglos durante la estabilización de una release
 
-Las reglas están como código en `.github/rulesets/` (`main.json`, `develop.json`, `tags.json`) y se aplican con un script, o manualmente en *Settings → Rules → Rulesets*:
+Mientras una rama `release/x.y.z` se prueba, `develop` sigue recibiendo trabajo nuevo que **no** debe salir en esa versión. Por eso la release se corta desde `develop` en un momento fijo y después sigue su propio camino:
 
-```bash
-GITHUB_TOKEN=<token con permiso Administration: write> ./scripts/apply_github_rules.sh <owner>/<repo>
+```
+develop        ●──●──●──●──●──●──●──●──────●     siguen entrando features nuevas
+                    \                     ↑
+release/1.1.0        ●──●──(fix)──●──┐    │ back-merge
+                                      \   │
+main                   ●───────────────●───┘     tag v1.1.0
 ```
 
-El script también desactiva el merge por rebase, activa el borrado automático de ramas integradas y deja el título del PR como mensaje del squash. Ejecútalo después del primer push y de la primera corrida de los workflows (los checks obligatorios deben existir). Si una regla con el mismo nombre ya existe, bórrala antes de volver a aplicarla.
+1. **Cortar la release** desde `develop` actualizado: `git switch develop && git pull && git switch -c release/1.1.0`. En esa rama se sube `version` en `pubspec.yaml` y se cierra `[Sin publicar]` en el changelog.
+2. **Corregir en la release.** Si las pruebas encuentran un bug, el arreglo se hace **solo en `release/1.1.0`**, con un commit directo o con una rama corta `bugfix/<nombre>` creada **desde la release** y fusionada de vuelta a ella. Cada arreglo lleva su entrada en el changelog.
+3. **No traer `develop` a la release.** No hagas merge ni rebase de `develop` dentro de `release/x.y.z`: se colarían features que no estaban en esa versión.
+4. **Publicar.** PR `release/x.y.z → main` con merge commit, y tag `vx.y.z` desde `main`.
+5. **Back-merge.** PR `main → develop` con merge commit, para que `develop` reciba los arreglos hechos en la release. Si el mismo bug ya estaba corregido en `develop`, los conflictos se resuelven en ese PR.
 
-**Quién puede integrar en `main` y `develop`: solo el dueño del repositorio.**
+**Qué rama usar para cada caso**
 
-- `.github/CODEOWNERS` asigna todo el código al dueño y los rulesets exigen **revisión del code owner** y 1 aprobación: nadie más puede integrar un PR sin la aprobación del dueño.
-- El rol *Admin* (el dueño) figura como actor con bypass **solo vía pull request**: puede integrar su propio PR sin esperar una aprobación que GitHub no le permite darse a sí mismo, pero sigue obligado a usar un PR (no puede hacer push directo). No agregues colaboradores con rol *Admin*.
-- Si otra cuenta abre el PR (un colaborador, un bot o un agente de IA con su propio token), el dueño lo revisa, lo aprueba y lo integra. Si el PR lo abre la cuenta del dueño, la revisión se hace antes de pulsar el botón de merge.
-- Los colaboradores con rol *Write* pueden abrir ramas y PRs, pero no integrar.
-- Los tags `v*` solo los puede crear el dueño.
-- Las reglas de ramas protegidas requieren un repositorio **público**, o un plan GitHub Pro/Team si es privado.
+| Situación | Rama |
+|---|---|
+| Bug encontrado probando una release en curso | Arreglo **en** `release/x.y.z` (commit directo o `bugfix/*` desde la release) |
+| Bug en producción, versión ya publicada | `hotfix/*` desde `main`, con tag de parche (`vx.y.z+1`) |
+| Bug en `develop` que no afecta a la release | `bugfix/*` hacia `develop` |
 
-**`main` — protegida (estricta)**
-
-- Requerir pull request antes de integrar; bloquear pushes directos.
-- Checks obligatorios: `Branch and title conventions`, `Lint and language check`, `Changelog updated` y `Analyze and test`. Los nombres solo aparecen en la lista después de la primera ejecución de los workflows.
-- Requerir que la rama esté actualizada con la base antes de integrar.
-- Requerir resolución de conversaciones y 1 aprobación del code owner (el dueño); el dueño integra con bypass solo vía PR (ver arriba).
-- Bloquear force push y eliminación de la rama. Incluir a los administradores.
-- Métodos de merge permitidos: solo merge commit.
-
-**`develop` — protegida**
-
-- Requerir pull request y los mismos checks obligatorios; bloquear pushes directos.
-- Bloquear force push y eliminación.
-- Métodos de merge permitidos: squash (y merge commit para el back-merge desde `main`).
-
-**Tags `v*` — protegidos con un ruleset de tags**
-
-- Solo los mantenedores pueden crearlos; bloquear actualización y eliminación. Un tag dispara la publicación en Firebase, así que debe tratarse como una acción privilegiada.
-- Recomendado: asociar el job de `firebase-distribution.yml` a un *environment* con revisores requeridos y mover ahí los secretos de Firebase.
-
-**Ramas de trabajo (`feature/*`, `bugfix/*`, `hotfix/*`, `release/*`, ...) — sin protección**
-
-- Son de vida corta y de quien las crea; la protección está en el PR hacia `develop` o `main`.
-- Activar *Automatically delete head branches* para que se borren al integrar.
-
-**Ajustes generales del repositorio**
-
-- Desactivar *Allow rebase merging*; dejar squash y merge commit.
-- Squash por defecto con *Pull request title* como mensaje del commit.
-- Rama por defecto: `develop` (los PRs y `git clone` apuntan al trabajo activo). Si prefieres que el repositorio muestre lo publicado, deja `main`; los workflows funcionan igual.
+Limitaciones actuales: los workflows `ci.yml` y `pr-validation.yml` solo se disparan en PRs hacia `develop` y `main`, y las ramas `release/*` no están protegidas. Un PR `bugfix/* → release/x.y.z` no pasa por validación ni CI; las pruebas de la release se ejecutan al abrir el PR hacia `main`. Para validar también esos PRs habría que extender los workflows a `release/**`.
 
 ### Alternativa más simple
 

@@ -8,6 +8,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [1.2.0] - 2026-10-07
 
+### Corregido
+- Se corrigió un error que impedía generar el APK de la versión: al comprimir el código, Android se detenía por unas clases opcionales de la lectura de texto. Se agregaron las reglas necesarias en `android/app/proguard-rules.pro`.
+- Al renombrar un documento sin miniatura se conservaba la ruta de la miniatura anterior.
+- El zoom con los dedos y con el deslizador iba entrecortado: ahora solo se repinta la etiqueta de zoom y el deslizador, el documento detectado se repinta aparte, la detección se pausa mientras se hace zoom y el deslizador es logarítmico.
+- Los botones del editor de recorte (Omitir, Agregar y Guardar) se desbordaban 23 px en pantallas de 360 dp; ahora se acomodan en varias líneas si hace falta.
+- Al conceder el permiso de cámara por primera vez, la cámara fallaba con "No supported surface combination" porque se abría dos veces a la vez; ahora las operaciones de cámara se serializan y hay pruebas de regresión.
+
 ### Añadido
 - OCR en el dispositivo con ML Kit: al guardar un escaneo se reconoce el texto de sus páginas en segundo plano, sin enviar nada a internet. La lista muestra «Reconociendo texto...» y después «Texto buscable», y «Ver texto» permite leer y copiar el texto reconocido.
 - La búsqueda también encuentra documentos por su texto reconocido (cada palabra en el nombre o en el contenido, sin distinguir mayúsculas ni acentos).
@@ -27,11 +34,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Prueba de integración del modo lote y `test_driver/integration_test.dart` para ejecutarlas con `flutter drive`.
 - `firebase-distribution.yml` verifica con `scripts/check_release_version.sh` que la versión del tag `vX.Y.Z` coincida con `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[X.Y.Z]`, para no publicar un APK de otra versión por un tag mal ubicado.
 
-### Corregido
-- Al renombrar un documento sin miniatura se conservaba la ruta de la miniatura anterior.
-- El zoom con los dedos y con el deslizador iba entrecortado: ahora solo se repinta la etiqueta de zoom y el deslizador, el documento detectado se repinta aparte, la detección se pausa mientras se hace zoom y el deslizador es logarítmico.
-- Los botones del editor de recorte (Omitir, Agregar y Guardar) se desbordaban 23 px en pantallas de 360 dp; ahora se acomodan en varias líneas si hace falta.
-- Al conceder el permiso de cámara por primera vez, la cámara fallaba con "No supported surface combination" porque se abría dos veces a la vez; ahora las operaciones de cámara se serializan y hay pruebas de regresión.
+
 
 ### Cambiado
 - iOS: el iOS mínimo sube de 13.0 a 15.5 y compilar para iOS requiere CocoaPods, por ML Kit. Los pods de ML Kit no incluyen arm64 para simulador, así que la app ya no se puede ejecutar en simuladores de iOS 26 en Apple Silicon (sí en un iPhone real); las pruebas de integración se ejecutan en Android.

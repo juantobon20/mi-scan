@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mi_scan/presentation/scanner/frame_converter.dart';
+import 'package:mi_scan/data/services/camera/frame_converter.dart';
 
 void main() {
   test('YUV: copies the subsampled luminance', () {

@@ -196,4 +196,100 @@ class AppLocalizationsEs extends AppLocalizations {
   String galleryAdd(int count) {
     return 'Agregar ($count)';
   }
+
+  @override
+  String get flashTooltip => 'Flash';
+
+  @override
+  String get torchTooltip => 'Linterna';
+
+  @override
+  String get modeSingle => 'Individual';
+
+  @override
+  String get modeBatch => 'Lote';
+
+  @override
+  String get batchDone => 'Listo';
+
+  @override
+  String get zoomTooltip => 'Zoom';
+
+  @override
+  String get searchTooltip => 'Buscar';
+
+  @override
+  String get searchClearTooltip => 'Borrar búsqueda';
+
+  @override
+  String get searchHint => 'Buscar documentos';
+
+  @override
+  String searchNoResults(String query) {
+    return 'Ningún documento coincide con \"$query\".';
+  }
+
+  @override
+  String get folderAll => 'Todos';
+
+  @override
+  String get folderNew => 'Nueva carpeta';
+
+  @override
+  String get folderNameTitle => 'Nombre de la carpeta';
+
+  @override
+  String get folderEmpty =>
+      'Esta carpeta está vacía.\nMueve un documento aquí o escanea uno nuevo.';
+
+  @override
+  String get folderRename => 'Renombrar carpeta';
+
+  @override
+  String get folderDelete => 'Eliminar carpeta';
+
+  @override
+  String get folderDeleteTitle => '¿Eliminar carpeta?';
+
+  @override
+  String folderDeleteMessage(String name) {
+    return 'Se eliminará \"$name\". Sus documentos se conservan y quedan fuera de la carpeta.';
+  }
+
+  @override
+  String get menuMove => 'Mover a carpeta';
+
+  @override
+  String get moveTitle => 'Mover a';
+
+  @override
+  String get moveNoFolder => 'Sin carpeta';
+
+  @override
+  String genericError(String error) {
+    return 'Algo salió mal: $error';
+  }
+
+  @override
+  String get menuViewText => 'Ver texto';
+
+  @override
+  String get textCopy => 'Copiar texto';
+
+  @override
+  String get textCopied => 'Texto copiado';
+
+  @override
+  String get textEmpty => 'No se encontró texto en este documento.';
+
+  @override
+  String get ocrRecognizing => 'Reconociendo texto...';
+
+  @override
+  String get searchableText => 'Texto buscable';
+
+  @override
+  String ocrFailed(String name) {
+    return 'No se pudo reconocer el texto de \"$name\".';
+  }
 }

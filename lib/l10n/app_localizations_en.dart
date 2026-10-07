@@ -196,4 +196,100 @@ class AppLocalizationsEn extends AppLocalizations {
   String galleryAdd(int count) {
     return 'Add ($count)';
   }
+
+  @override
+  String get flashTooltip => 'Flash';
+
+  @override
+  String get torchTooltip => 'Flashlight';
+
+  @override
+  String get modeSingle => 'Single';
+
+  @override
+  String get modeBatch => 'Batch';
+
+  @override
+  String get batchDone => 'Done';
+
+  @override
+  String get zoomTooltip => 'Zoom';
+
+  @override
+  String get searchTooltip => 'Search';
+
+  @override
+  String get searchClearTooltip => 'Clear search';
+
+  @override
+  String get searchHint => 'Search documents';
+
+  @override
+  String searchNoResults(String query) {
+    return 'No documents match \"$query\".';
+  }
+
+  @override
+  String get folderAll => 'All';
+
+  @override
+  String get folderNew => 'New folder';
+
+  @override
+  String get folderNameTitle => 'Folder name';
+
+  @override
+  String get folderEmpty =>
+      'This folder is empty.\nMove a document here or scan a new one.';
+
+  @override
+  String get folderRename => 'Rename folder';
+
+  @override
+  String get folderDelete => 'Delete folder';
+
+  @override
+  String get folderDeleteTitle => 'Delete folder?';
+
+  @override
+  String folderDeleteMessage(String name) {
+    return '\"$name\" will be deleted. Its documents are kept and moved out of the folder.';
+  }
+
+  @override
+  String get menuMove => 'Move to folder';
+
+  @override
+  String get moveTitle => 'Move to';
+
+  @override
+  String get moveNoFolder => 'No folder';
+
+  @override
+  String genericError(String error) {
+    return 'Something went wrong: $error';
+  }
+
+  @override
+  String get menuViewText => 'View text';
+
+  @override
+  String get textCopy => 'Copy text';
+
+  @override
+  String get textCopied => 'Text copied';
+
+  @override
+  String get textEmpty => 'No text was found in this document.';
+
+  @override
+  String get ocrRecognizing => 'Recognizing text...';
+
+  @override
+  String get searchableText => 'Searchable text';
+
+  @override
+  String ocrFailed(String name) {
+    return 'Could not recognize the text of \"$name\".';
+  }
 }

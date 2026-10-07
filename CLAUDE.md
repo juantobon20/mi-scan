@@ -6,7 +6,7 @@ Contexto y reglas de trabajo para asistentes de IA en este repositorio. Lee `REA
 
 Mi Scan es un escáner de documentos hecho con Flutter (Dart ^3.12, Flutter 3.44) para Android e iOS: detección de bordes en vivo con OpenCV, recorte con corrección de perspectiva y filtros, exportación a PDF de varias páginas y compartir. Es un proyecto de portafolio, así que la calidad del código, la arquitectura y las pruebas importan tanto como las funcionalidades.
 
-Paquete `mi_scan`, id de Android `com.appinc.mi_scan`. Sin backend ni base de datos: los documentos son `nombre.pdf` más una miniatura `nombre.pdf.jpg` en el directorio de documentos de la app.
+Paquete `mi_scan`, id de Android `com.appinc.mi_scan`. Sin backend: los PDFs (`nombre.pdf` más una miniatura `nombre.pdf.jpg`) están en el directorio de documentos de la app y sus metadatos (carpetas, páginas, fechas) en SQLite (`mi_scan.db`, vía `sqflite`).
 
 ## Arquitectura (Clean Architecture)
 
@@ -15,13 +15,16 @@ presentation ──▶ domain ◀── data        core/di = composition root
 ```
 
 - `lib/domain`: Dart puro (entidades, interfaces de repositorios y servicios, casos de uso). Sin Flutter ni plugins.
-- `lib/data`: implementaciones (`FileDocumentRepository`, `OpenCvImageProcessor`, PDF, compartir, directorios).
+- `lib/data`: implementaciones (`SqliteDocumentRepository`, `SqliteFolderRepository`, `AppDatabase`, `DocumentFiles`, `OpenCvImageProcessor`, PDF, compartir, directorios).
 - `lib/presentation`: pantallas y controladores `ChangeNotifier` (`HomeController`, `ScanSession`). Las pantallas reciben sus dependencias por constructor.
 - `lib/core/di/service_locator.dart`: el único lugar que conoce las clases concretas (`get_it`). No llames a `sl` desde pantallas ni desde el dominio.
 - `ScanSession` es la fachada que usan las pantallas del escáner para páginas, detección, recorte y creación del PDF.
 - `Quad` guarda cuatro puntos normalizados a 0..1, ordenados arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda.
 
-Brechas conocidas: `ScannerScreen` y `GalleryPickerScreen` usan `camera` y `photo_manager` directamente (sin abstraer y con poca cobertura de pruebas); `OpenCvImageProcessor` no tiene pruebas automatizadas.
+La cámara y la galería están detrás de `CameraService`/`CameraSession` y `GalleryService` (domain); las implementaciones con plugins viven en `lib/data/services/` y las pantallas usan `ScannerController`/`GalleryController` creados por `ScreenFactory`. El escáner solo usa cámaras traseras y cambia de lente según el zoom (nunca hay botones de lente ni cámara frontal). Brechas conocidas: la detección de bordes de `OpenCvImageProcessor`, `PluginCameraSession` y `PhotoManagerGalleryService` no tienen pruebas automatizadas (se validan en un teléfono); los filtros de OpenCV sí se prueban en el simulador con `integration_test/opencv_filters_test.dart`.
+
+- OCR: `TextRecognizer` (domain) con `MlKitTextRecognizer` (data); se ejecuta al guardar un escaneo, mientras existen las imágenes de la sesión (`HomeScreen._scan` no borra la sesión hasta que termina). La base va por la versión 2.
+- Cambios de esquema: agrega un paso al final de `AppDatabase._migrations`, sube `AppDatabase.schemaVersion`, agrega la migración en `onUpgrade` y pruébala con una base creada con el esquema anterior. Los repositorios SQLite se prueban con `sqflite_common_ffi` (`test/helpers/sqlite_helpers.dart`) y con el plugin real en `integration_test/storage_test.dart`.
 
 ## Comandos
 
@@ -31,13 +34,14 @@ flutter analyze --fatal-infos --fatal-warnings
 dart tool/check_english.dart            # usa `dart tool/...`, no `dart run` (lento en este proyecto)
 flutter test                            # pruebas unitarias + de widgets
 flutter test integration_test -d <id>   # requiere simulador/dispositivo
+flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_test.dart -d <id>
 ./scripts/check_quality.sh              # analizador + changelog + verificación de inglés
 ./scripts/install_hooks.sh              # una vez por clon
 ```
 
 ## Reglas para todo cambio
 
-1. **Solo inglés** en identificadores, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepciones: `lib/l10n/` (traducciones al español de la interfaz) y todos los archivos `.md` (`README.md`, `CHANGELOG.md`, este archivo y la plantilla de PR) están en español; mantén cada archivo en un solo idioma.
+1. **Solo inglés** en identificadores, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepciones: `lib/l10n/` (traducciones al español de la interfaz) y todos los archivos `.md` (`README.md`, `CHANGELOG.md`, este archivo y la plantilla de PR) están en español; mantén cada archivo en un solo idioma. Si una prueba necesita caracteres con acento (por ejemplo las de la búsqueda sin acentos), escríbelos como escapes Unicode (`\u00e1`) para no romper la regla.
 2. **Sin comentarios en el código.** Documenta el comportamiento y los contratos en `README.md` (ver "Contratos importantes"). Prefiere nombres claros a las explicaciones.
 3. **Actualiza `CHANGELOG.md`** bajo `## [Sin publicar]` en todo cambio de archivos o recurso nuevo, incluido el trabajo hecho por IA. El hook de pre-commit y CI fallan si no lo haces.
 4. **Agrega o actualiza pruebas** junto con el cambio. Pon los dobles de prueba en `test/helpers/fakes.dart`; usa `mocktail` solo para verificar interacciones.
@@ -51,17 +55,20 @@ flutter test integration_test -d <id>   # requiere simulador/dispositivo
 - Ramas: GitFlow simplificado (`main` + `develop` protegidas, ramas de vida corta). Detalle y reglas de protección en el README, sección "Estrategia de ramas". Nombre `<type>/<kebab-case>` con type en `feature bugfix hotfix release chore docs refactor test ci`; las de trabajo salen de `develop` y vuelven a `develop` con squash; `release/*` y `hotfix/*` apuntan a `main` con merge commit, seguidos de un back-merge `main → develop`.
 - Solo el dueño del repositorio integra y aprueba PRs en `main` y `develop` (ver `.github/rulesets/` y `.github/CODEOWNERS`). No integres PRs ni cambies las reglas de protección por tu cuenta.
 - Nunca hagas push directo a `main` ni a `develop`, ni crees tags `v*` sin que lo pida el usuario (un tag publica en Firebase).
-- Commits y títulos de PR: Conventional Commits, `<type>(<scope>)?: <description>`, en inglés.
+- Mensajes de commit: Conventional Commits, `<type>(<scope>)?: <description>`, en inglés.
+- Título del PR: exactamente el nombre de su rama (`feature/document-storage`, `bugfix/camera-crash`); lo valida `pr-validation.yml`. Al crear un PR, pon el nombre exacto, no el título que GitHub propone. Los PRs `develop → main` y `main → develop` pueden llevar cualquier título.
 - No hagas commit de `img.png` (captura de referencia ignorada por git), `build/`, `.dart_tool/` ni `local.properties`.
 - Las líneas de atribución de commits y PRs se agregan según las instrucciones de la sesión.
 
 ## CI
 
-- `pr-validation.yml`: nombre de rama, título del PR, verificación ASCII, analizador, verificación de inglés y changelog.
+- `pr-validation.yml`: nombre de rama, título del PR igual al nombre de la rama, verificación ASCII, analizador, verificación de inglés y changelog.
 - `ci.yml`: analizador, verificación de inglés y pruebas en `develop` y en PRs.
 - `firebase-distribution.yml`: APK release de Android a Firebase App Distribution (manual o tag `v*`); requiere los secretos `FIREBASE_ANDROID_APP_ID` y `FIREBASE_SERVICE_ACCOUNT_JSON`.
 
 ## Detalles a tener en cuenta
+
+- **iOS:** ML Kit exige CocoaPods (`brew install cocoapods`) e iOS 15.5+, y **no trae arm64 para simulador**: en Apple Silicon la app no corre en simuladores de iOS 26. Verifica iOS con `flutter build ios --no-codesign` o en un iPhone real, y ejecuta las pruebas de integración en un emulador Android (`flutter test integration_test -d <emulador>`).
 
 - `opencv_dart` necesita assets nativos; el primer build de iOS/Android es lento. La cámara y la detección en vivo solo funcionan en un dispositivo real.
 - Se usan los parámetros nombrados privados de Dart 3.12 (`required this._createDocument` en `ScanSession`); quien llama pasa `createDocument:`.

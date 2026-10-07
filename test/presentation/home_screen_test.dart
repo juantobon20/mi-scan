@@ -1,18 +1,21 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mi_scan/domain/entities/scanned_document.dart';
-import 'package:mi_scan/domain/usecases/document_usecases.dart';
+import 'package:mi_scan/domain/entities/folder.dart';
+import 'package:mi_scan/domain/entities/scan_page.dart';
 import 'package:mi_scan/presentation/home/home_controller.dart';
 import 'package:mi_scan/presentation/home/home_screen.dart';
 import 'package:mi_scan/presentation/scanner/scan_session.dart';
+import 'package:mi_scan/presentation/scanner/scanner_screen.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump_helpers.dart';
 
 void main() {
-  late InMemoryDocumentRepository repo;
+  late InMemoryDocumentRepository docs;
+  late InMemoryFolderRepository folders;
   late FakeShareService share;
   late HomeController ctrl;
   var sessionsStarted = 0;
@@ -22,159 +25,514 @@ void main() {
     return buildSession(Directory.systemTemp.createTempSync('home_test_'));
   }
 
-  Future<void> pumpHome(WidgetTester tester, [List docs = const []]) async {
-    repo = InMemoryDocumentRepository([for (final d in docs) d]);
+  Future<void> pumpHome(
+    WidgetTester tester, {
+    List<dynamic> documents = const [],
+    List<Folder> existingFolders = const [],
+    Locale locale = const Locale('en'),
+  }) async {
+    usePhoneScreen(tester);
+    docs = InMemoryDocumentRepository([for (final d in documents) d]);
+    folders = InMemoryFolderRepository(docs, existingFolders);
     share = FakeShareService();
-    ctrl = HomeController(
-      listDocuments: ListDocuments(repo),
-      renameDocument: RenameDocument(repo),
-      deleteDocument: DeleteDocument(repo),
-      shareService: share,
+    ctrl = makeHomeController(documents: docs, folders: folders, share: share);
+    await pumpApp(
+      tester,
+      HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()),
+      locale: locale,
     );
-    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession));
     await tester.pumpAndSettle();
   }
+
+  Future<void> openMenu(WidgetTester tester, String item) async {
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(item));
+    await tester.pumpAndSettle();
+  }
+
+  final work = Folder(id: 'work', name: 'Work', createdAt: DateTime(2026, 1, 1));
 
   setUp(() => sessionsStarted = 0);
 
-  testWidgets('shows the title and the empty state', (tester) async {
-    await pumpHome(tester);
-    expect(find.text('Recent'), findsOneWidget);
-    expect(find.textContaining('You have no documents yet'), findsOneWidget);
-    expect(find.byKey(const Key('scan_fab')), findsOneWidget);
-  });
-
-  testWidgets('shows an indicator while loading', (tester) async {
-    repo = InMemoryDocumentRepository();
-    ctrl = HomeController(
-      listDocuments: ListDocuments(repo),
-      renameDocument: RenameDocument(repo),
-      deleteDocument: DeleteDocument(repo),
-      shareService: FakeShareService(),
-    );
-    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession));
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    await tester.pumpAndSettle();
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-  });
-
-  testWidgets('lists documents with name, date and size', (tester) async {
-    await pumpHome(tester, [sampleDoc('Contract'), sampleDoc('Receipt', sizeBytes: 5 * 1024 * 1024)]);
-    expect(find.text('Contract'), findsOneWidget);
-    expect(find.text('3/5/2026 09:07 · 2 KB'), findsOneWidget);
-    expect(find.text('3/5/2026 09:07 · 5.0 MB'), findsOneWidget);
-    expect(find.byIcon(Icons.picture_as_pdf), findsNWidgets(2));
-  });
-
-  testWidgets('tapping a document shares it', (tester) async {
-    await pumpHome(tester, [sampleDoc('Contract')]);
-    await tester.tap(find.text('Contract'));
-    await tester.pump();
-    expect(share.shared, ['/mem/Contract.pdf']);
-  });
-
-  testWidgets('menu → Share', (tester) async {
-    await pumpHome(tester, [sampleDoc('Contract')]);
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Share'));
-    await tester.pumpAndSettle();
-    expect(share.shared, hasLength(1));
-  });
-
-  testWidgets('menu → Rename updates the list', (tester) async {
-    await pumpHome(tester, [sampleDoc('Old')]);
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Rename'));
-    await tester.pumpAndSettle();
-
-    expect(find.widgetWithText(TextField, 'Old'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'New');
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('New'), findsOneWidget);
-    expect(find.text('Old'), findsNothing);
-  });
-
-  testWidgets('rename then cancel changes nothing', (tester) async {
-    await pumpHome(tester, [sampleDoc('Old')]);
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Rename'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(find.text('Old'), findsOneWidget);
-  });
-
-  testWidgets('menu → Delete asks for confirmation and deletes', (tester) async {
-    await pumpHome(tester, [sampleDoc('DeleteMe')]);
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
-    await tester.pumpAndSettle();
-    expect(find.text('Delete document?'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
-    await tester.pumpAndSettle();
-    expect(find.text('DeleteMe'), findsNothing);
-    expect(find.textContaining('You have no documents yet'), findsOneWidget);
-  });
-
-  testWidgets('cancelling the deletion keeps the document', (tester) async {
-    await pumpHome(tester, [sampleDoc('Safe')]);
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
-    await tester.pumpAndSettle();
-    expect(find.text('Safe'), findsOneWidget);
-  });
-
-  testWidgets('shows an error with a retry option', (tester) async {
-    final failing = _FailingOnce();
-    ctrl = HomeController(
-      listDocuments: ListDocuments(failing),
-      renameDocument: RenameDocument(failing),
-      deleteDocument: DeleteDocument(failing),
-      shareService: FakeShareService(),
-    );
-    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession));
-    await tester.pumpAndSettle();
-    expect(find.text('Could not load documents'), findsOneWidget);
-
-    await tester.tap(find.text('Retry'));
-    await tester.pumpAndSettle();
-    expect(find.text('Recovered'), findsOneWidget);
-  });
-
-  testWidgets('the FAB starts a session and opens the scanner', (tester) async {
-    await pumpHome(tester);
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(const Key('scan_fab')));
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+  group('list', () {
+    testWidgets('shows the title and the empty state', (tester) async {
+      await pumpHome(tester);
+      expect(find.text('Recent'), findsOneWidget);
+      expect(find.textContaining('You have no documents yet'), findsOneWidget);
+      expect(find.byKey(const Key('scan_fab')), findsOneWidget);
     });
-    for (var i = 0; i < 5; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    expect(sessionsStarted, 1);
-    expect(find.text('Could not open the camera'), findsOneWidget);
+
+    testWidgets('shows an indicator while loading', (tester) async {
+      usePhoneScreen(tester);
+      ctrl = makeHomeController();
+      await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('lists documents with name, date, size and number of pages', (tester) async {
+      await pumpHome(tester, documents: [
+        sampleDoc('Contract', pageCount: 3),
+        sampleDoc('Receipt', sizeBytes: 5 * 1024 * 1024, pageCount: 1),
+        sampleDoc('Legacy'),
+      ]);
+      expect(find.text('3/5/2026 09:07 \u00b7 2 KB \u00b7 3 pages'), findsOneWidget);
+      expect(find.text('3/5/2026 09:07 \u00b7 5.0 MB \u00b7 1 page'), findsOneWidget);
+      expect(find.text('3/5/2026 09:07 \u00b7 2 KB'), findsOneWidget);
+      expect(find.byIcon(Icons.picture_as_pdf), findsNWidgets(3));
+    });
+
+    testWidgets('tapping a document shares it', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Contract')]);
+      await tester.tap(find.text('Contract'));
+      await tester.pump();
+      expect(share.shared, ['/mem/Contract.pdf']);
+    });
+
+    testWidgets('shows an error with a retry option', (tester) async {
+      usePhoneScreen(tester);
+      docs = InMemoryDocumentRepository([sampleDoc('Recovered')])..listError = Exception('disk unavailable');
+      ctrl = makeHomeController(documents: docs);
+      await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()));
+      await tester.pumpAndSettle();
+      expect(find.text('Could not load documents'), findsOneWidget);
+      docs.listError = null;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('Recovered'), findsOneWidget);
+    });
   });
-}
 
-class _FailingOnce extends InMemoryDocumentRepository {
-  var _first = true;
+  group('actions', () {
+    testWidgets('menu \u2192 Share', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Contract')]);
+      await openMenu(tester, 'Share');
+      expect(share.shared, hasLength(1));
+    });
 
-  @override
-  Future<List<ScannedDocument>> list() async {
-    if (_first) {
-      _first = false;
-      throw Exception('disk unavailable');
+    testWidgets('menu \u2192 Rename updates the list', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Old')]);
+      await openMenu(tester, 'Rename');
+      expect(find.widgetWithText(TextField, 'Old'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'New');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.text('New'), findsOneWidget);
+      expect(find.text('Old'), findsNothing);
+    });
+
+    testWidgets('renaming and cancelling changes nothing', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Old')]);
+      await openMenu(tester, 'Rename');
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Old'), findsOneWidget);
+    });
+
+    testWidgets('menu \u2192 Delete asks for confirmation and deletes', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('DeleteMe')]);
+      await openMenu(tester, 'Delete');
+      expect(find.text('Delete document?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+      await tester.pumpAndSettle();
+      expect(find.text('DeleteMe'), findsNothing);
+      expect(find.textContaining('You have no documents yet'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the deletion keeps the document', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Safe')]);
+      await openMenu(tester, 'Delete');
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Safe'), findsOneWidget);
+    });
+
+    testWidgets('the FAB starts a session and opens the scanner', (tester) async {
+      await pumpHome(tester);
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(const Key('scan_fab')));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(sessionsStarted, 1);
+      expect(find.byType(ScannerScreen), findsOneWidget);
+    });
+  });
+
+  group('search', () {
+    final all = [sampleDoc('Invoice March'), sampleDoc('Contract'), sampleDoc('Receipt')];
+
+    Future<void> type(WidgetTester tester, String text) async {
+      await tester.enterText(find.byKey(const Key('search_field')), text);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
     }
-    return [sampleDoc('Recovered')];
-  }
+
+    testWidgets('the search button reveals the search field', (tester) async {
+      await pumpHome(tester, documents: all);
+      expect(find.byKey(const Key('search_field')), findsNothing);
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('search_field')), findsOneWidget);
+      expect(find.text('Search documents'), findsOneWidget);
+    });
+
+    testWidgets('typing filters the list', (tester) async {
+      await pumpHome(tester, documents: all);
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      await type(tester, 'contr');
+      expect(find.text('Contract'), findsOneWidget);
+      expect(find.text('Invoice March'), findsNothing);
+      expect(find.text('Receipt'), findsNothing);
+    });
+
+    testWidgets('shows a message with the text when nothing matches', (tester) async {
+      await pumpHome(tester, documents: all);
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      await type(tester, 'zzz');
+      expect(find.text('No documents match "zzz".'), findsOneWidget);
+      expect(find.textContaining('You have no documents yet'), findsNothing);
+    });
+
+    testWidgets('closing the search restores the full list', (tester) async {
+      await pumpHome(tester, documents: all);
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      await type(tester, 'contr');
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('search_field')), findsNothing);
+      expect(find.text('Invoice March'), findsOneWidget);
+      expect(find.text('Receipt'), findsOneWidget);
+    });
+
+    testWidgets('searching ignores accents', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Declaraci\u00f3n de renta'), sampleDoc('Other')]);
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      await type(tester, 'declaracion');
+      expect(find.text('Declaraci\u00f3n de renta'), findsOneWidget);
+      expect(find.text('Other'), findsNothing);
+    });
+  });
+
+  group('folders', () {
+    testWidgets('shows All plus every folder with its document count', (tester) async {
+      await pumpHome(
+        tester,
+        documents: [sampleDoc('A', folderId: 'work'), sampleDoc('B', folderId: 'work'), sampleDoc('C')],
+        existingFolders: [work],
+      );
+      expect(find.byKey(const Key('folder_all')), findsOneWidget);
+      expect(find.text('Work (2)'), findsOneWidget);
+      expect(find.byKey(const Key('folder_new')), findsOneWidget);
+    });
+
+    testWidgets('selecting a folder shows only its documents', (tester) async {
+      await pumpHome(
+        tester,
+        documents: [sampleDoc('In work', folderId: 'work'), sampleDoc('Loose')],
+        existingFolders: [work],
+      );
+      await tester.tap(find.byKey(const Key('folder_work')));
+      await tester.pumpAndSettle();
+      expect(find.text('In work'), findsOneWidget);
+      expect(find.text('Loose'), findsNothing);
+      await tester.tap(find.byKey(const Key('folder_all')));
+      await tester.pumpAndSettle();
+      expect(find.text('Loose'), findsOneWidget);
+    });
+
+    testWidgets('an empty folder explains what to do', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Loose')], existingFolders: [work]);
+      await tester.tap(find.byKey(const Key('folder_work')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('This folder is empty'), findsOneWidget);
+    });
+
+    testWidgets('New folder asks for a name, creates it and opens it', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Loose')]);
+      await tester.tap(find.byKey(const Key('folder_new')));
+      await tester.pumpAndSettle();
+      expect(find.text('Folder name'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Taxes');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.text('Taxes (0)'), findsOneWidget);
+      expect(ctrl.selectedFolder?.name, 'Taxes');
+      expect(find.text('Loose'), findsNothing);
+    });
+
+    testWidgets('a blank folder name creates nothing', (tester) async {
+      await pumpHome(tester);
+      await tester.tap(find.byKey(const Key('folder_new')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '   ');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(folders.folders, isEmpty);
+    });
+
+    testWidgets('cancelling the folder name creates nothing', (tester) async {
+      await pumpHome(tester);
+      await tester.tap(find.byKey(const Key('folder_new')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(folders.folders, isEmpty);
+    });
+
+    testWidgets('a failure creating a folder is reported', (tester) async {
+      await pumpHome(tester);
+      folders.createError = StateError('disk full');
+      await tester.tap(find.byKey(const Key('folder_new')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Taxes');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Something went wrong'), findsOneWidget);
+    });
+
+    testWidgets('long press \u2192 Rename folder', (tester) async {
+      await pumpHome(tester, existingFolders: [work]);
+      await tester.longPress(find.byKey(const Key('folder_work')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('folder_rename')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'Work'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Office');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(find.text('Office (0)'), findsOneWidget);
+    });
+
+    testWidgets('long press \u2192 Delete folder keeps the documents', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Keep me', folderId: 'work')], existingFolders: [work]);
+      await tester.tap(find.byKey(const Key('folder_work')));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const Key('folder_work')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('folder_delete')));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete folder?'), findsOneWidget);
+      expect(find.textContaining('"Work" will be deleted'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('folder_work')), findsNothing);
+      expect(find.text('Keep me'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the folder deletion keeps it', (tester) async {
+      await pumpHome(tester, existingFolders: [work]);
+      await tester.longPress(find.byKey(const Key('folder_work')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('folder_delete')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('folder_work')), findsOneWidget);
+    });
+  });
+
+  group('moving documents', () {
+    testWidgets('menu \u2192 Move to folder lists the folders and the no-folder option', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Doc')], existingFolders: [work]);
+      await openMenu(tester, 'Move to folder');
+      expect(find.text('Move to'), findsOneWidget);
+      expect(find.byKey(const Key('move_none')), findsOneWidget);
+      expect(find.byKey(const Key('move_work')), findsOneWidget);
+    });
+
+    testWidgets('choosing a folder moves the document and updates the counts', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Doc')], existingFolders: [work]);
+      await openMenu(tester, 'Move to folder');
+      await tester.tap(find.byKey(const Key('move_work')));
+      await tester.pumpAndSettle();
+      expect(find.text('Work (1)'), findsOneWidget);
+      expect(docs.docs.single.folderId, 'work');
+    });
+
+    testWidgets('choosing No folder takes the document out', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Doc', folderId: 'work')], existingFolders: [work]);
+      await openMenu(tester, 'Move to folder');
+      await tester.tap(find.byKey(const Key('move_none')));
+      await tester.pumpAndSettle();
+      expect(find.text('Work (0)'), findsOneWidget);
+      expect(docs.docs.single.folderId, isNull);
+    });
+
+    testWidgets('the current folder is marked', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Doc', folderId: 'work')], existingFolders: [work]);
+      await openMenu(tester, 'Move to folder');
+      expect(find.descendant(of: find.byKey(const Key('move_work')), matching: find.byIcon(Icons.check)), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('move_none')), matching: find.byIcon(Icons.check)), findsNothing);
+    });
+
+    testWidgets('dismissing the dialog moves nothing', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Doc')], existingFolders: [work]);
+      await openMenu(tester, 'Move to folder');
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(docs.docs.single.folderId, isNull);
+    });
+  });
+
+  group('recognized text', () {
+    testWidgets('a document with text shows the searchable indicator and the View text option', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Invoice', id: 'a'), sampleDoc('Photo', id: 'b')]);
+      docs.texts['a'] = 'Total due 120';
+      await ctrl.load();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('has_text')), findsOneWidget);
+      expect(find.text('Searchable text'), findsOneWidget);
+    });
+
+    testWidgets('View text opens the recognized text', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Invoice', id: 'a')]);
+      docs.texts['a'] = 'Total due 120';
+      await ctrl.load();
+      await tester.pumpAndSettle();
+      await openMenu(tester, 'View text');
+      expect(find.text('Total due 120'), findsOneWidget);
+      expect(find.byKey(const Key('copy_text')), findsOneWidget);
+    });
+
+    testWidgets('documents without text do not offer View text', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Photo')]);
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      expect(find.text('View text'), findsNothing);
+    });
+
+    testWidgets('searching finds documents by their text', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Scan 1', id: 'a'), sampleDoc('Scan 2', id: 'b')]);
+      docs.texts['b'] = 'Mortgage payment';
+      await ctrl.load();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('search_field')), 'mortgage');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      expect(find.text('Scan 2'), findsOneWidget);
+      expect(find.text('Scan 1'), findsNothing);
+    });
+
+    testWidgets('shows progress while the text is being recognized', (tester) async {
+      final recognizer = FakeTextRecognizer(defaultText: 'hello')..gate = Completer<void>();
+      usePhoneScreen(tester);
+      docs = InMemoryDocumentRepository([sampleDoc('Doc', id: 'a')]);
+      ctrl = makeHomeController(documents: docs, recognizer: recognizer);
+      await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()));
+      await tester.pumpAndSettle();
+      final running = ctrl.recognizeText(docs.docs.single, const [ScanPage('/p.jpg', 1, 1)]);
+      await tester.pump();
+      expect(find.byKey(const Key('ocr_progress')), findsOneWidget);
+      expect(find.text('Recognizing text...'), findsOneWidget);
+      recognizer.gate!.complete();
+      await running;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ocr_progress')), findsNothing);
+      expect(find.byKey(const Key('has_text')), findsOneWidget);
+    });
+  });
+
+  group('scanning a document', () {
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    late Directory sessionDir;
+    late FakeTextRecognizer recognizer;
+    late FakeImageProcessor processor;
+
+    Future<void> scanOnePage(WidgetTester tester, {FakeTextRecognizer? withRecognizer}) async {
+      usePhoneScreen(tester);
+      sessionDir = Directory.systemTemp.createTempSync('scan_flow_');
+      final photo = File('${sessionDir.path}/photo.png')..writeAsBytesSync(kTinyPng);
+      processor = FakeImageProcessor();
+      recognizer = withRecognizer ?? FakeTextRecognizer(defaultText: 'Recognized words');
+      docs = InMemoryDocumentRepository();
+      folders = InMemoryFolderRepository(docs);
+      share = FakeShareService();
+      ctrl = makeHomeController(documents: docs, folders: folders, share: share, recognizer: recognizer);
+      final workDir = Directory('${sessionDir.path}/session')..createSync();
+      await pumpApp(
+        tester,
+        HomeScreen(
+          controller: ctrl,
+          startSession: () async => buildSession(workDir, processor: processor, repo: docs),
+          factory: fakeScreenFactory(camera: FakeCameraService(photoPath: photo.path)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan_fab')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('mode_batch')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('shutter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('batch_done')));
+      await settle(tester);
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Save'));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await settle(tester);
+      await tester.enterText(find.byType(TextField), 'Scanned doc');
+      await tester.tap(find.text('Save'));
+    }
+
+    testWidgets('the text of the new document is recognized in the background and saved', (tester) async {
+      await scanOnePage(tester);
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(docs.docs.single.name, 'Scanned doc');
+      expect(recognizer.recognized, hasLength(1));
+      expect(docs.texts[docs.docs.single.id], 'Recognized words');
+      expect(find.byKey(const Key('has_text')), findsOneWidget);
+      expect(share.shared, ['/mem/Scanned doc.pdf']);
+    });
+
+    testWidgets('the page images are kept until the recognition ends and deleted afterwards', (tester) async {
+      final gated = FakeTextRecognizer(defaultText: 'x')..gate = Completer<void>();
+      await scanOnePage(tester, withRecognizer: gated);
+      await settle(tester);
+      final workDir = Directory('${sessionDir.path}/session');
+      expect(workDir.existsSync(), isTrue);
+      expect(find.byKey(const Key('ocr_progress')), findsOneWidget);
+      gated.gate!.complete();
+      await settle(tester);
+      expect(workDir.existsSync(), isFalse);
+      expect(find.byKey(const Key('ocr_progress')), findsNothing);
+    });
+
+    testWidgets('a failed recognition tells the user and still keeps the document', (tester) async {
+      final failing = FakeTextRecognizer()..failAll = true;
+      await scanOnePage(tester, withRecognizer: failing);
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(docs.docs, hasLength(1));
+      expect(docs.texts, isEmpty);
+      expect(find.text('Could not recognize the text of "Scanned doc".'), findsOneWidget);
+      expect(find.byKey(const Key('has_text')), findsNothing);
+    });
+  });
+
+  testWidgets('texts follow the device language', (tester) async {
+    await pumpHome(tester, locale: const Locale('es'));
+    expect(find.text('Recientes'), findsOneWidget);
+    expect(find.byKey(const Key('folder_all')), findsOneWidget);
+    expect(find.text('All'), findsNothing);
+  });
 }

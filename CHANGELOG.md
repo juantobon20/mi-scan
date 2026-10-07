@@ -6,6 +6,43 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [1.2.0] - 2026-10-07
+
+### Añadido
+- OCR en el dispositivo con ML Kit: al guardar un escaneo se reconoce el texto de sus páginas en segundo plano, sin enviar nada a internet. La lista muestra «Reconociendo texto...» y después «Texto buscable», y «Ver texto» permite leer y copiar el texto reconocido.
+- La búsqueda también encuentra documentos por su texto reconocido (cada palabra en el nombre o en el contenido, sin distinguir mayúsculas ni acentos).
+- Carpetas: crear, renombrar y eliminar (los documentos se conservan sin carpeta), mover documentos con «Mover a carpeta» y guardar los escaneos nuevos en la carpeta abierta.
+- Búsqueda de documentos por nombre, sin distinguir mayúsculas ni acentos, con varias palabras y combinable con la carpeta.
+- Cada documento muestra su número de páginas.
+- Zoom (pellizco y deslizador), flash de tres estados y linterna en el escáner.
+- Cambio automático de lente al hacer zoom, como la cámara original (ultra gran angular, principal y teleobjetivo), sin botones y solo con las cámaras traseras.
+- Modo lote: captura continua de fotos y, con "Listo", editor de recorte foto por foto (como en el modo individual) antes de generar el PDF.
+- Vista previa inmediata de los filtros (Original, Mejorado, Grises y B/N) en el editor de recorte, igual que el resultado guardado.
+- Migración de la base de datos a la versión 2 (`content_text` y `search_content`), con una lista de pasos de migración y pruebas de actualización desde la versión 1 que conservan las filas.
+- `integration_test/ocr_test.dart` (ML Kit y base reales) y pruebas de migración y de búsqueda por contenido en `integration_test/storage_test.dart`.
+- Almacenamiento de los metadatos en SQLite (`sqflite`): `AppDatabase`, `SqliteDocumentRepository`, `SqliteFolderRepository` y `DocumentFiles`; los PDFs guardados por versiones anteriores se importan solos y las filas sin archivo se eliminan.
+- Los workflows de CI y distribución instalan `libsqlite3-dev` para las pruebas de los repositorios SQLite.
+- Pruebas de los repositorios SQLite con una base real, de los casos de uso y del controlador de inicio, y `integration_test/storage_test.dart` con el plugin nativo de SQLite.
+- `integration_test/opencv_filters_test.dart`: pruebas de los filtros, la reducción y el recorte con OpenCV real.
+- Prueba de integración del modo lote y `test_driver/integration_test.dart` para ejecutarlas con `flutter drive`.
+- `firebase-distribution.yml` verifica con `scripts/check_release_version.sh` que la versión del tag `vX.Y.Z` coincida con `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[X.Y.Z]`, para no publicar un APK de otra versión por un tag mal ubicado.
+
+### Corregido
+- Al renombrar un documento sin miniatura se conservaba la ruta de la miniatura anterior.
+- El zoom con los dedos y con el deslizador iba entrecortado: ahora solo se repinta la etiqueta de zoom y el deslizador, el documento detectado se repinta aparte, la detección se pausa mientras se hace zoom y el deslizador es logarítmico.
+- Los botones del editor de recorte (Omitir, Agregar y Guardar) se desbordaban 23 px en pantallas de 360 dp; ahora se acomodan en varias líneas si hace falta.
+- Al conceder el permiso de cámara por primera vez, la cámara fallaba con "No supported surface combination" porque se abría dos veces a la vez; ahora las operaciones de cámara se serializan y hay pruebas de regresión.
+
+### Cambiado
+- iOS: el iOS mínimo sube de 13.0 a 15.5 y compilar para iOS requiere CocoaPods, por ML Kit. Los pods de ML Kit no incluyen arm64 para simulador, así que la app ya no se puede ejecutar en simuladores de iOS 26 en Apple Silicon (sí en un iPhone real); las pruebas de integración se ejecutan en Android.
+- `DocumentRepository` incorpora `saveText` y `getText`, y `ScannedDocument` tiene `hasText`.
+- Al volver del escáner, las imágenes de la sesión se conservan hasta que termina el OCR en lugar de borrarse al instante.
+- El título de un PR debe ser exactamente el nombre de su rama (`feature/document-storage`, `bugfix/...`) en lugar de seguir Conventional Commits; los mensajes de commit mantienen su formato. `pr-validation.yml`, el README, `CLAUDE.md` y la plantilla de PR se actualizaron, y los PRs `develop → main` y `main → develop` pueden llevar cualquier título.
+- `DocumentRepository` ahora recibe un `DocumentQuery`, tiene `move` y los documentos tienen `id`, carpeta, número de páginas y fecha de creación; `FileDocumentRepository` fue reemplazado por los repositorios SQLite.
+- El escáner usa solo cámaras traseras: se quitó la cámara frontal.
+- La cámara y la galería están detrás de interfaces del dominio (`CameraService`, `CameraSession`, `GalleryService`) con implementaciones en `data`; `ScannerScreen` y `GalleryPickerScreen` usan `ScannerController` y `GalleryController`, creados por `ScreenFactory`.
+- `frame_converter.dart` pasó de `presentation` a `data`, porque convierte frames del plugin de cámara.
+
 ## [1.1.0] - 2026-10-06
 
 ### Añadido

@@ -403,6 +403,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add ({count})'**
   String galleryAdd(int count);
+
+  /// No description provided for @flashTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Flash'**
+  String get flashTooltip;
+
+  /// No description provided for @torchTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Flashlight'**
+  String get torchTooltip;
+
+  /// No description provided for @modeSingle.
+  ///
+  /// In en, this message translates to:
+  /// **'Single'**
+  String get modeSingle;
+
+  /// No description provided for @modeBatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch'**
+  String get modeBatch;
+
+  /// No description provided for @batchDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get batchDone;
+
+  /// No description provided for @zoomTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom'**
+  String get zoomTooltip;
+
+  /// No description provided for @searchTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get searchTooltip;
+
+  /// No description provided for @searchClearTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get searchClearTooltip;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search documents'**
+  String get searchHint;
+
+  /// No description provided for @searchNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No documents match \"{query}\".'**
+  String searchNoResults(String query);
+
+  /// No description provided for @folderAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get folderAll;
+
+  /// No description provided for @folderNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New folder'**
+  String get folderNew;
+
+  /// No description provided for @folderNameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder name'**
+  String get folderNameTitle;
+
+  /// No description provided for @folderEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'This folder is empty.\nMove a document here or scan a new one.'**
+  String get folderEmpty;
+
+  /// No description provided for @folderRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename folder'**
+  String get folderRename;
+
+  /// No description provided for @folderDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete folder'**
+  String get folderDelete;
+
+  /// No description provided for @folderDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete folder?'**
+  String get folderDeleteTitle;
+
+  /// No description provided for @folderDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" will be deleted. Its documents are kept and moved out of the folder.'**
+  String folderDeleteMessage(String name);
+
+  /// No description provided for @menuMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to folder'**
+  String get menuMove;
+
+  /// No description provided for @moveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to'**
+  String get moveTitle;
+
+  /// No description provided for @moveNoFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'No folder'**
+  String get moveNoFolder;
+
+  /// No description provided for @genericError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong: {error}'**
+  String genericError(String error);
+
+  /// No description provided for @menuViewText.
+  ///
+  /// In en, this message translates to:
+  /// **'View text'**
+  String get menuViewText;
+
+  /// No description provided for @textCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy text'**
+  String get textCopy;
+
+  /// No description provided for @textCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Text copied'**
+  String get textCopied;
+
+  /// No description provided for @textEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No text was found in this document.'**
+  String get textEmpty;
+
+  /// No description provided for @ocrRecognizing.
+  ///
+  /// In en, this message translates to:
+  /// **'Recognizing text...'**
+  String get ocrRecognizing;
+
+  /// No description provided for @searchableText.
+  ///
+  /// In en, this message translates to:
+  /// **'Searchable text'**
+  String get searchableText;
+
+  /// No description provided for @ocrFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not recognize the text of \"{name}\".'**
+  String ocrFailed(String name);
 }
 
 class _AppLocalizationsDelegate

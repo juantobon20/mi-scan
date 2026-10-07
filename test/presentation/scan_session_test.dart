@@ -85,7 +85,33 @@ void main() {
     expect(session.pages, isEmpty);
   });
 
-  test('detectInFile y detectLive delegate to the processor', () async {
+  group('autoCropPage', () {
+    test('crops with the detected document and adds the page', () async {
+      processor.detected = Quad.inset(0.1);
+      final page = await session.autoCropPage(makePage('shot').path);
+      expect(processor.calls, ['normalize', 'crop:original', 'normalize']);
+      expect(session.pages, [page]);
+    });
+
+    test('falls back to the whole image when no document is detected', () async {
+      processor.detected = null;
+      await session.autoCropPage(makePage('shot').path);
+      expect(session.pages, hasLength(1));
+    });
+
+    test('uses the requested filter', () async {
+      await session.autoCropPage(makePage('shot').path, filter: ScanFilter.blackAndWhite);
+      expect(processor.calls, contains('crop:blackAndWhite'));
+    });
+
+    test('does not leave temporary copies behind', () async {
+      await session.autoCropPage(makePage('shot').path);
+      final leftovers = dir.listSync().whereType<File>().where((f) => f.path.contains('src_'));
+      expect(leftovers, isEmpty);
+    });
+  });
+
+  test('detectInFile and detectLive delegate to the processor', () async {
     processor.detected = Quad.inset(0.2);
     expect(await session.detectInFile('x'), processor.detected);
     expect(await session.detectLive(GrayFrame(Uint8List(4), 2, 2, 90)), processor.detected);

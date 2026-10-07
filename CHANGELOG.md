@@ -7,7 +7,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Añadido
+- Zoom (pellizco y deslizador), flash de tres estados y linterna en el escáner.
+- Selector de lentes con todas las cámaras que reporta el teléfono (gran angular, ultra gran angular, teleobjetivo, frontal y numeradas).
+- Modo lote: captura continua con recorte automático (`ScanSession.autoCropPage`) y botón "Listo" para generar el PDF.
+- Prueba de integración del modo lote y `test_driver/integration_test.dart` para ejecutarlas con `flutter drive`.
 - `firebase-distribution.yml` verifica con `scripts/check_release_version.sh` que la versión del tag `vX.Y.Z` coincida con `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[X.Y.Z]`, para no publicar un APK de otra versión por un tag mal ubicado.
+
+### Cambiado
+- La cámara y la galería están detrás de interfaces del dominio (`CameraService`, `CameraSession`, `GalleryService`) con implementaciones en `data`; `ScannerScreen` y `GalleryPickerScreen` usan `ScannerController` y `GalleryController`, creados por `ScreenFactory`.
+- `frame_converter.dart` pasó de `presentation` a `data`, porque convierte frames del plugin de cámara.
 
 ## [1.1.0] - 2026-10-06
 

@@ -66,6 +66,18 @@ class ScanSession extends ChangeNotifier {
     return ScanPage(dst, size.width, size.height);
   }
 
+  Future<ScanPage> autoCropPage(String sourcePath, {ScanFilter filter = ScanFilter.original}) async {
+    final tmp = await importSource(sourcePath);
+    try {
+      final quad = await _processor.detectInFile(tmp) ?? Quad.inset(0.04);
+      final page = await cropPage(tmp, quad, filter);
+      add(page);
+      return page;
+    } finally {
+      silentDelete(tmp);
+    }
+  }
+
   Future<ScannedDocument> saveAsPdf(String name) => _createDocument(_pages, name);
 
   void disposeFiles() {

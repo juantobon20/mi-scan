@@ -196,4 +196,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String galleryAdd(int count) {
     return 'Add ($count)';
   }
+
+  @override
+  String get lensWide => 'Wide';
+
+  @override
+  String get lensUltraWide => 'Ultra wide';
+
+  @override
+  String get lensTelephoto => 'Telephoto';
+
+  @override
+  String get lensFront => 'Front';
+
+  @override
+  String get lensExternal => 'External';
+
+  @override
+  String lensNumbered(int number) {
+    return 'Camera $number';
+  }
+
+  @override
+  String get flashTooltip => 'Flash';
+
+  @override
+  String get torchTooltip => 'Flashlight';
+
+  @override
+  String get modeSingle => 'Single';
+
+  @override
+  String get modeBatch => 'Batch';
+
+  @override
+  String get batchDone => 'Done';
+
+  @override
+  String get zoomTooltip => 'Zoom';
 }

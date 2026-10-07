@@ -21,7 +21,7 @@ presentation ──▶ domain ◀── data        core/di = composition root
 - `ScanSession` es la fachada que usan las pantallas del escáner para páginas, detección, recorte y creación del PDF.
 - `Quad` guarda cuatro puntos normalizados a 0..1, ordenados arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda.
 
-Brechas conocidas: `ScannerScreen` y `GalleryPickerScreen` usan `camera` y `photo_manager` directamente (sin abstraer y con poca cobertura de pruebas); `OpenCvImageProcessor` no tiene pruebas automatizadas.
+La cámara y la galería están detrás de `CameraService`/`CameraSession` y `GalleryService` (domain); las implementaciones con plugins viven en `lib/data/services/` y las pantallas usan `ScannerController`/`GalleryController` creados por `ScreenFactory`. Brechas conocidas: `OpenCvImageProcessor`, `PluginCameraSession` y `PhotoManagerGalleryService` no tienen pruebas automatizadas (se validan en un teléfono).
 
 ## Comandos
 
@@ -31,6 +31,7 @@ flutter analyze --fatal-infos --fatal-warnings
 dart tool/check_english.dart            # usa `dart tool/...`, no `dart run` (lento en este proyecto)
 flutter test                            # pruebas unitarias + de widgets
 flutter test integration_test -d <id>   # requiere simulador/dispositivo
+flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_test.dart -d <id>
 ./scripts/check_quality.sh              # analizador + changelog + verificación de inglés
 ./scripts/install_hooks.sh              # una vez por clon
 ```

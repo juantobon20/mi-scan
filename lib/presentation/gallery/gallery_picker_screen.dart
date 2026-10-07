@@ -1,207 +1,172 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:photo_manager/photo_manager.dart';
-import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/gallery_image.dart';
+import 'gallery_controller.dart';
 
 class GalleryPickerScreen extends StatefulWidget {
-  const GalleryPickerScreen({super.key, required this.dir});
-  final String dir;
+  const GalleryPickerScreen({super.key, required this.controller});
+  final GalleryController controller;
 
   @override
   State<GalleryPickerScreen> createState() => _GalleryPickerScreenState();
 }
 
 class _GalleryPickerScreenState extends State<GalleryPickerScreen> with WidgetsBindingObserver {
-  static const _pageSize = 90;
-
-  final _assets = <AssetEntity>[];
-  final _selected = <AssetEntity>[];
   final _scroll = ScrollController();
-  AssetPathEntity? _album;
-  bool _denied = false;
-  bool _loading = true;
-  bool _more = true;
-  bool _working = false;
-  int _page = 0;
+
+  GalleryController get ctrl => widget.controller;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scroll.addListener(() {
-      if (_scroll.position.extentAfter < 600) _loadMore();
+      if (_scroll.position.extentAfter < 600) ctrl.loadMore();
     });
-    _init();
+    ctrl.initialize();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
+    ctrl.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || _working) return;
-    _selected.clear();
-    _assets.clear();
-    setState(() {
-      _denied = false;
-      _loading = true;
-      _more = true;
-      _page = 0;
-      _album = null;
-    });
-    _init();
+    if (state == AppLifecycleState.resumed && !ctrl.working) ctrl.initialize();
   }
-
-  Future<void> _init() async {
-    final perm = await PhotoManager.requestPermissionExtend();
-    if (!perm.hasAccess) {
-      if (mounted) {
-        setState(() {
-          _denied = true;
-          _loading = false;
-        });
-      }
-      return;
-    }
-    final albums = await PhotoManager.getAssetPathList(
-      onlyAll: true,
-      type: RequestType.image,
-      filterOption: FilterOptionGroup(orders: [const OrderOption(type: OrderOptionType.createDate)]),
-    );
-    if (albums.isEmpty) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-    _album = albums.first;
-    await _loadMore();
-  }
-
-  Future<void> _loadMore() async {
-    final album = _album;
-    if (album == null || !_more) return;
-    _more = false;
-    final list = await album.getAssetListPaged(page: _page, size: _pageSize);
-    if (!mounted) return;
-    setState(() {
-      _assets.addAll(list);
-      _loading = false;
-      _page++;
-      _more = list.length == _pageSize;
-    });
-  }
-
-  void _toggle(AssetEntity a) => setState(() {
-        if (!_selected.remove(a)) _selected.add(a);
-      });
 
   Future<void> _confirm() async {
-    setState(() => _working = true);
-    final paths = <String>[];
-    for (final a in _selected) {
-      final bytes = await a.thumbnailDataWithSize(
-        const ThumbnailSize(2800, 2800),
-        format: ThumbnailFormat.jpeg,
-        quality: 92,
-      );
-      if (bytes == null) continue;
-      final f = File(p.join(widget.dir, 'gal_${DateTime.now().microsecondsSinceEpoch}.jpg'));
-      await f.writeAsBytes(bytes);
-      paths.add(f.path);
-    }
+    final paths = await ctrl.confirm();
     if (mounted) Navigator.pop(context, paths);
   }
 
   @override
-  Widget build(BuildContext context) {
-    final n = _selected.length;
-    return Scaffold(
-      appBar: AppBar(title: Text(n == 0 ? context.l10n.galleryTitle : context.l10n.gallerySelected(n))),
-      body: _denied
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(context.l10n.galleryNoPermission, textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  FilledButton(onPressed: PhotoManager.openSetting, child: Text(context.l10n.actionOpenSettings)),
-                ]),
-              ),
-            )
-          : _loading
-              ? const Center(child: CircularProgressIndicator(color: kScanColor))
-              : _assets.isEmpty
-                  ? Center(child: Text(context.l10n.galleryEmpty))
-                  : GridView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.only(bottom: 96),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 2,
-                        crossAxisSpacing: 2,
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: ctrl,
+        builder: (context, _) {
+          final n = ctrl.selectedCount;
+          return Scaffold(
+            appBar: AppBar(title: Text(n == 0 ? context.l10n.galleryTitle : context.l10n.gallerySelected(n))),
+            body: _body(context),
+            floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+            floatingActionButton: n == 0
+                ? null
+                : ctrl.working
+                    ? const CircularProgressIndicator(color: kScanColor)
+                    : FloatingActionButton.extended(
+                        key: const Key('gallery_confirm'),
+                        backgroundColor: kScanColor,
+                        foregroundColor: Colors.white,
+                        onPressed: _confirm,
+                        icon: const Icon(Icons.add),
+                        label: Text(context.l10n.galleryAdd(n)),
                       ),
-                      itemCount: _assets.length,
-                      itemBuilder: (context, i) {
-                        final a = _assets[i];
-                        final idx = _selected.indexOf(a);
-                        return GestureDetector(
-                          onTap: () => _toggle(a),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image(
-                                image: AssetEntityImageProvider(
-                                  a,
-                                  isOriginal: false,
-                                  thumbnailSize: const ThumbnailSize.square(300),
-                                ),
-                                fit: BoxFit.cover,
-                              ),
-                              if (idx >= 0) Container(color: kScanColor.withValues(alpha: 0.3)),
-                              Positioned(
-                                left: 6,
-                                top: 6,
-                                child: Container(
-                                  width: 24,
-                                  height: 24,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: idx >= 0 ? kScanColor : Colors.black26,
-                                    border: Border.all(color: Colors.white, width: 2),
-                                  ),
-                                  child: idx >= 0
-                                      ? Text('${idx + 1}',
-                                          style: const TextStyle(
-                                              color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))
-                                      : null,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: n == 0
-          ? null
-          : _working
-              ? const CircularProgressIndicator(color: kScanColor)
-              : FloatingActionButton.extended(
-                  backgroundColor: kScanColor,
-                  foregroundColor: Colors.white,
-                  onPressed: _confirm,
-                  icon: const Icon(Icons.add),
-                  label: Text(context.l10n.galleryAdd(n)),
-                ),
+          );
+        },
+      );
+
+  Widget _body(BuildContext context) {
+    switch (ctrl.status) {
+      case GalleryStatus.denied:
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(context.l10n.galleryNoPermission, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: ctrl.openSettings, child: Text(context.l10n.actionOpenSettings)),
+            ]),
+          ),
+        );
+      case GalleryStatus.loading:
+        return const Center(child: CircularProgressIndicator(color: kScanColor));
+      case GalleryStatus.ready:
+        if (ctrl.images.isEmpty) return Center(child: Text(context.l10n.galleryEmpty));
+        return GridView.builder(
+          controller: _scroll,
+          padding: const EdgeInsets.only(bottom: 96),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 2,
+            crossAxisSpacing: 2,
+          ),
+          itemCount: ctrl.images.length,
+          itemBuilder: (context, i) {
+            final image = ctrl.images[i];
+            return _GalleryCell(
+              key: Key('gallery_${image.id}'),
+              image: image,
+              selectionIndex: ctrl.selectionIndex(image),
+              thumbnail: ctrl.thumbnail(image),
+              onTap: () => ctrl.toggle(image),
+            );
+          },
+        );
+    }
+  }
+}
+
+class _GalleryCell extends StatelessWidget {
+  const _GalleryCell({
+    super.key,
+    required this.image,
+    required this.selectionIndex,
+    required this.thumbnail,
+    required this.onTap,
+  });
+
+  final GalleryImage image;
+  final int selectionIndex;
+  final Future<Uint8List?> thumbnail;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = selectionIndex >= 0;
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FutureBuilder<Uint8List?>(
+            future: thumbnail,
+            builder: (context, snapshot) {
+              final bytes = snapshot.data;
+              if (bytes == null) return const ColoredBox(color: Colors.black12);
+              return Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true);
+            },
+          ),
+          if (selected) Container(color: kScanColor.withValues(alpha: 0.3)),
+          Positioned(
+            left: 6,
+            top: 6,
+            child: Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? kScanColor : Colors.black26,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: selected
+                  ? Text(
+                      '${selectionIndex + 1}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    )
+                  : null,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

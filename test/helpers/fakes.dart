@@ -1,12 +1,17 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:mi_scan/data/services/app_directories.dart';
+import 'package:mi_scan/domain/entities/camera_info.dart';
+import 'package:mi_scan/domain/entities/gallery_image.dart';
 import 'package:mi_scan/domain/entities/quad.dart';
 import 'package:mi_scan/domain/entities/scan_filter.dart';
 import 'package:mi_scan/domain/entities/scan_page.dart';
 import 'package:mi_scan/domain/entities/scanned_document.dart';
 import 'package:mi_scan/domain/repositories/document_repository.dart';
+import 'package:mi_scan/domain/services/camera_service.dart';
+import 'package:mi_scan/domain/services/gallery_service.dart';
 import 'package:mi_scan/domain/services/image_processor.dart';
 import 'package:mi_scan/domain/services/pdf_generator.dart';
 import 'package:mi_scan/domain/services/share_service.dart';
@@ -116,3 +121,150 @@ ScannedDocument sampleDoc(String name, {int sizeBytes = 2048, DateTime? modified
       modified: modified ?? DateTime(2026, 3, 5, 9, 7),
       sizeBytes: sizeBytes,
     );
+
+class FakeCameraSession implements CameraSession {
+  FakeCameraSession(this.info, {this.zoomRange = const ZoomRange(1, 8), this.photoPath = ''});
+
+  @override
+  final CameraInfo info;
+
+  @override
+  final ZoomRange zoomRange;
+
+  final String photoPath;
+  final frameController = StreamController<GrayFrame>.broadcast();
+  final calls = <String>[];
+  double zoom = 1;
+  FlashSetting flash = FlashSetting.off;
+  bool torch = false;
+  bool disposed = false;
+  bool streaming = false;
+  int shots = 0;
+  Object? takePictureError;
+
+  @override
+  double get previewAspectRatio => 0.75;
+
+  @override
+  Stream<GrayFrame> get frames => frameController.stream;
+
+  @override
+  Future<void> startFrames() async {
+    streaming = true;
+    calls.add('startFrames');
+  }
+
+  @override
+  Future<void> stopFrames() async {
+    streaming = false;
+    calls.add('stopFrames');
+  }
+
+  @override
+  Future<void> setZoom(double value) async {
+    zoom = value;
+    calls.add('zoom:$value');
+  }
+
+  @override
+  Future<void> setFlash(FlashSetting value) async {
+    flash = value;
+    calls.add('flash:${value.name}');
+  }
+
+  @override
+  Future<void> setTorch(bool enabled) async {
+    torch = enabled;
+    calls.add('torch:$enabled');
+  }
+
+  @override
+  Future<String> takePicture() async {
+    final error = takePictureError;
+    if (error != null) throw error;
+    calls.add('takePicture');
+    final source = File(photoPath);
+    if (!source.existsSync()) return photoPath;
+    final copy = File('$photoPath.${++shots}')..writeAsBytesSync(source.readAsBytesSync());
+    return copy.path;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    calls.add('dispose');
+    unawaited(frameController.close());
+  }
+
+  void emitFrame() => frameController.add(GrayFrame(Uint8List(4), 2, 2, 90));
+}
+
+class FakeCameraService implements CameraService {
+  FakeCameraService({
+    List<CameraInfo>? cameras,
+    this.photoPath = '',
+    this.listError,
+    this.openError,
+  }) : cameras = cameras ?? const [CameraInfo(id: 'back-wide', facing: CameraFacing.back, lens: CameraLens.wide)];
+
+  final List<CameraInfo> cameras;
+  final String photoPath;
+  Object? listError;
+  Object? openError;
+  final opened = <FakeCameraSession>[];
+
+  @override
+  Future<List<CameraInfo>> listCameras() async {
+    final error = listError;
+    if (error != null) throw error;
+    return cameras;
+  }
+
+  @override
+  Future<CameraSession> open(CameraInfo camera) async {
+    final error = openError;
+    if (error != null) throw error;
+    final session = FakeCameraSession(camera, photoPath: photoPath);
+    opened.add(session);
+    return session;
+  }
+}
+
+class FakeGalleryService implements GalleryService {
+  FakeGalleryService({this.access = GalleryAccess.granted, int count = 5})
+      : images = [for (var i = 0; i < count; i++) GalleryImage('img$i')];
+
+  GalleryAccess access;
+  final List<GalleryImage> images;
+  final exported = <String>[];
+  var settingsOpened = 0;
+  var accessRequests = 0;
+  Set<String> failExport = {};
+
+  @override
+  Future<GalleryAccess> requestAccess() async {
+    accessRequests++;
+    return access;
+  }
+
+  @override
+  Future<List<GalleryImage>> loadPage({required int page, required int size}) async {
+    final start = page * size;
+    if (start >= images.length) return const [];
+    return images.sublist(start, (start + size).clamp(0, images.length));
+  }
+
+  @override
+  Future<Uint8List?> thumbnail(GalleryImage image, {required int size}) async => kTinyPng;
+
+  @override
+  Future<bool> exportJpeg(GalleryImage image, String destinationPath) async {
+    if (failExport.contains(image.id)) return false;
+    File(destinationPath).writeAsBytesSync(kTinyPng);
+    exported.add(image.id);
+    return true;
+  }
+
+  @override
+  Future<void> openSettings() async => settingsOpened++;
+}

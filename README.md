@@ -7,6 +7,9 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 ## Funcionalidades
 
 - Cámara con **detección de bordes en vivo** (Canny + contornos, ejecutada en un isolate).
+- **Zoom** (gesto de pellizco y deslizador), **flash** (apagado, automático, encendido) y **linterna**.
+- **Todas las cámaras del teléfono**: selector de lentes (gran angular, ultra gran angular, teleobjetivo, frontal y las que reporte el dispositivo).
+- **Modo lote**: captura varias páginas seguidas; cada una se recorta sola con el documento detectado y se guarda con "Listo".
 - Importación desde la **galería** con selección múltiple (HEIC se convierte a JPEG en iOS).
 - Editor de recorte con esquinas arrastrables, detección automática y **filtros**: Original, Enhanced, Grayscale, B&W (umbral adaptativo).
 - Revisión de páginas: reordenar, rotar, eliminar y agregar más.
@@ -53,22 +56,27 @@ lib/
 │   ├── theme/app_theme.dart
 │   └── utils/formatters.dart     # formato de fecha/tamaño, nombres de archivo, silentDelete
 ├── domain/                       # Dart puro, sin Flutter ni plugins
-│   ├── entities/                 # Quad, ScanPage, ScanFilter, ScannedDocument, GrayFrame
+│   ├── entities/                 # Quad, ScanPage, ScanFilter, ScannedDocument, GrayFrame,
+│   │                             # CameraInfo, ZoomRange, FlashSetting, GalleryImage
 │   ├── repositories/             # DocumentRepository (interfaz)
 │   ├── services/                 # ImageProcessor, PdfGenerator, ThumbnailGenerator,
-│   │                             # ShareService, SessionStorage (interfaces)
+│   │                             # ShareService, SessionStorage, CameraService/CameraSession,
+│   │                             # GalleryService (interfaces)
 │   └── usecases/                 # ListDocuments, CreateDocument, RenameDocument, DeleteDocument
 ├── data/
 │   ├── repositories/file_document_repository.dart   # PDFs en disco + miniaturas
 │   └── services/                 # OpenCvImageProcessor, PdfPackageGenerator,
-│                                 # UiThumbnailGenerator, SharePlusService,
-│                                 # PathProviderDirectories, FileSessionStorage
+│       │                         # UiThumbnailGenerator, SharePlusService,
+│       │                         # PathProviderDirectories, FileSessionStorage,
+│       │                         # PhotoManagerGalleryService
+│       └── camera/               # PluginCameraService, mapeos y frame_converter
 └── presentation/
     ├── home/                     # HomeScreen + HomeController
-    ├── scanner/                  # ScannerScreen, ScanSession, frame_converter
+    ├── navigation/               # ScreenFactory (fábrica de controladores y vista previa)
+    ├── scanner/                  # ScannerScreen, ScannerController, ScanSession
     ├── crop/                     # CropScreen (editor de esquinas y filtros)
     ├── review/                   # ReviewScreen (páginas de la sesión)
-    ├── gallery/                  # GalleryPickerScreen
+    ├── gallery/                  # GalleryPickerScreen, GalleryController
     └── widgets/                  # QuadPainter, diálogo de nombre, guardado de PDF
 ```
 
@@ -114,6 +122,12 @@ Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 | `saveSessionAsPdf` | Pide un nombre, muestra un diálogo de progreso y devuelve `null` si se cancela o falla (se muestra un snackbar). |
 | `showNameDialog` | Devuelve el texto ingresado, o `null` si se cancela. |
 | `GalleryPickerScreen` | Devuelve las rutas JPEG de las imágenes elegidas, en orden de selección. |
+| `CameraService` | `listCameras()` devuelve todas las cámaras del teléfono; `open(camera)` entrega una `CameraSession` o lanza `CameraAccessException` (`permissionDenied`, `unavailable`, `failed`). |
+| `CameraSession` | Una cámara abierta: `frames` (cuadros en gris para detectar el documento, ~5 por segundo), `setZoom` (se ajusta a `zoomRange`), `setFlash`, `setTorch`, `takePicture` y `dispose`. La linterna tiene prioridad sobre el flash. |
+| `GalleryService` | `requestAccess`, `loadPage` (paginado), `thumbnail`, `exportJpeg` (siempre JPEG, también convierte HEIC) y `openSettings`. |
+| `ScannerController` | Estado del escáner: cámaras, lente elegida, zoom, flash, linterna, documento detectado (suavizado), modo y captura. Al cambiar de lente conserva flash y linterna y reinicia el zoom a 1x. |
+| `ScanMode` | `single` abre el editor de recorte tras cada foto; `batch` recorta sola con `ScanSession.autoCropPage` (filtro Original, documento detectado o la imagen completa) y no interrumpe la captura. |
+| `ScreenFactory` | Crea los controladores de escáner y galería y el constructor de la vista previa; se registra en el contenedor de DI y evita que las pantallas lo consulten. |
 | `CropResult` | La página recortada y si el usuario eligió guardar el PDF ahora. |
 
 ## Inyección de dependencias
@@ -131,8 +145,10 @@ Las clases reciben sus dependencias **por constructor** y dependen de interfaces
 ## Pruebas
 
 ```bash
-flutter test                                        # pruebas unitarias + de widgets (124 pruebas)
+flutter test                                        # pruebas unitarias + de widgets
 flutter test integration_test -d <id-dispositivo>   # integración en simulador/dispositivo
+flutter drive --driver=test_driver/integration_test.dart \
+  --target=integration_test/app_test.dart -d <id-dispositivo>   # lo mismo con flutter drive
 flutter test --coverage
 ```
 
@@ -147,7 +163,7 @@ flutter test --coverage
 
 Los dobles de prueba están en `test/helpers/fakes.dart` (repositorio en memoria, procesador de imágenes, servicio de compartir, etc.).
 
-**Cobertura:** ~56 % de las líneas en total; ~95 % en dominio, repositorio, controladores y sesión. `OpenCvImageProcessor`, `GalleryPickerScreen` y la mayor parte de `ScannerScreen` no están cubiertos porque dependen de OpenCV nativo, `photo_manager` y la cámara real (ver limitaciones).
+**Cobertura:** la lógica de dominio, repositorio, controladores (incluidos `ScannerController` y `GalleryController`), sesión y pantallas está cubierta con dobles de cámara y galería (`FakeCameraService`, `FakeGalleryService`). No se cubren `OpenCvImageProcessor` ni las clases que hablan con los plugins reales (`PluginCameraSession`, `PhotoManagerGalleryService`): dependen de OpenCV nativo, de la cámara y de la galería del dispositivo; se validan a mano en un teléfono.
 
 ## Idiomas (localización)
 
@@ -414,7 +430,8 @@ Cumplimiento:
 
 ## Limitaciones conocidas y próximos pasos
 
-- `ScannerScreen` y `GalleryPickerScreen` usan `camera` y `photo_manager` directamente. Siguiente paso: abstraerlos (`CameraService`, `GalleryService`) para poder probarlos con dobles.
+- Las cámaras que se listan dependen de lo que reporte el plugin `camera` en cada teléfono; algunos fabricantes no exponen todos los lentes físicos.
+- El modo lote usa siempre el filtro Original; no hay selector de filtro en la captura continua.
 - `OpenCvImageProcessor` no tiene pruebas automatizadas; se podrían agregar pruebas de integración en dispositivo con imágenes de muestra.
 - Solo hay dos idiomas (inglés y español) y no existe un selector de idioma dentro de la app.
 - No hay persistencia de metadatos más allá del sistema de archivos (sin búsqueda ni etiquetas).

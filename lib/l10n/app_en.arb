@@ -130,5 +130,24 @@
         "type": "int"
       }
     }
-  }
+  },
+  "lensWide": "Wide",
+  "lensUltraWide": "Ultra wide",
+  "lensTelephoto": "Telephoto",
+  "lensFront": "Front",
+  "lensExternal": "External",
+  "lensNumbered": "Camera {number}",
+  "@lensNumbered": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "flashTooltip": "Flash",
+  "torchTooltip": "Flashlight",
+  "modeSingle": "Single",
+  "modeBatch": "Batch",
+  "batchDone": "Done",
+  "zoomTooltip": "Zoom"
 }

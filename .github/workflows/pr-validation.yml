@@ -58,11 +58,19 @@ jobs:
       - name: Validate PR title
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
-          title_pattern='^(feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)(\([a-z0-9-]+\))?!?: .{3,}$'
-          if ! echo "$PR_TITLE" | grep -qE "$title_pattern"; then
-            echo "::error::Invalid PR title '$PR_TITLE'."
-            echo "Expected <type>(<scope>)?: <description>, e.g. 'feat(scanner): add flash toggle'."
+          if [ "$HEAD_BRANCH" = "main" ] || [ "$HEAD_BRANCH" = "develop" ]; then
+            if [ -z "$(printf '%s' "$PR_TITLE" | tr -d '[:space:]')" ]; then
+              echo "::error::The PR title cannot be empty."
+              exit 1
+            fi
+            exit 0
+          fi
+
+          if [ "$PR_TITLE" != "$HEAD_BRANCH" ]; then
+            echo "::error::Invalid PR title '$PR_TITLE'. The title must be exactly the branch name: '$HEAD_BRANCH'."
+            echo "GitHub fills the title with a prettified branch name (for example 'Feature/document storage'); replace it with the exact branch name."
             exit 1
           fi
 

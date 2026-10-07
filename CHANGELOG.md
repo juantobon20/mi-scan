@@ -21,6 +21,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Al conceder el permiso de cámara por primera vez, la cámara fallaba con "No supported surface combination" porque se abría dos veces a la vez; ahora las operaciones de cámara se serializan y hay pruebas de regresión.
 
 ### Cambiado
+- El título de un PR debe ser exactamente el nombre de su rama (`feature/document-storage`, `bugfix/...`) en lugar de seguir Conventional Commits; los mensajes de commit mantienen su formato. `pr-validation.yml`, el README, `CLAUDE.md` y la plantilla de PR se actualizaron, y los PRs `develop → main` y `main → develop` pueden llevar cualquier título.
 - El escáner usa solo cámaras traseras: se quitó la cámara frontal.
 - La cámara y la galería están detrás de interfaces del dominio (`CameraService`, `CameraSession`, `GalleryService`) con implementaciones en `data`; `ScannerScreen` y `GalleryPickerScreen` usan `ScannerController` y `GalleryController`, creados por `ScreenFactory`.
 - `frame_converter.dart` pasó de `presentation` a `data`, porque convierte frames del plugin de cámara.

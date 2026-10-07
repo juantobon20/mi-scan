@@ -52,13 +52,14 @@ flutter drive --driver=test_driver/integration_test.dart --target=integration_te
 - Ramas: GitFlow simplificado (`main` + `develop` protegidas, ramas de vida corta). Detalle y reglas de protección en el README, sección "Estrategia de ramas". Nombre `<type>/<kebab-case>` con type en `feature bugfix hotfix release chore docs refactor test ci`; las de trabajo salen de `develop` y vuelven a `develop` con squash; `release/*` y `hotfix/*` apuntan a `main` con merge commit, seguidos de un back-merge `main → develop`.
 - Solo el dueño del repositorio integra y aprueba PRs en `main` y `develop` (ver `.github/rulesets/` y `.github/CODEOWNERS`). No integres PRs ni cambies las reglas de protección por tu cuenta.
 - Nunca hagas push directo a `main` ni a `develop`, ni crees tags `v*` sin que lo pida el usuario (un tag publica en Firebase).
-- Commits y títulos de PR: Conventional Commits, `<type>(<scope>)?: <description>`, en inglés.
+- Mensajes de commit: Conventional Commits, `<type>(<scope>)?: <description>`, en inglés.
+- Título del PR: exactamente el nombre de su rama (`feature/document-storage`, `bugfix/camera-crash`); lo valida `pr-validation.yml`. Al crear un PR, pon el nombre exacto, no el título que GitHub propone. Los PRs `develop → main` y `main → develop` pueden llevar cualquier título.
 - No hagas commit de `img.png` (captura de referencia ignorada por git), `build/`, `.dart_tool/` ni `local.properties`.
 - Las líneas de atribución de commits y PRs se agregan según las instrucciones de la sesión.
 
 ## CI
 
-- `pr-validation.yml`: nombre de rama, título del PR, verificación ASCII, analizador, verificación de inglés y changelog.
+- `pr-validation.yml`: nombre de rama, título del PR igual al nombre de la rama, verificación ASCII, analizador, verificación de inglés y changelog.
 - `ci.yml`: analizador, verificación de inglés y pruebas en `develop` y en PRs.
 - `firebase-distribution.yml`: APK release de Android a Firebase App Distribution (manual o tag `v*`); requiere los secretos `FIREBASE_ANDROID_APP_ID` y `FIREBASE_SERVICE_ACCOUNT_JSON`.
 

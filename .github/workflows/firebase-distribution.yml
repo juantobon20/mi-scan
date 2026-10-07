@@ -8,9 +8,9 @@ on:
         required: false
         default: testers
       release_notes:
-        description: Release notes shown to testers
+        description: Release notes shown to testers (leave empty to use CHANGELOG.md)
         required: false
-        default: Manual build from GitHub Actions
+        default: 
   push:
     tags: ['v*']
 
@@ -106,11 +106,20 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "push" ]; then
             echo "groups=testers" >> "$GITHUB_OUTPUT"
-            echo "notes=Release $REF_NAME" >> "$GITHUB_OUTPUT"
+            version="${REF_NAME#v}"
           else
             echo "groups=${INPUT_GROUPS:-testers}" >> "$GITHUB_OUTPUT"
-            echo "notes=${INPUT_NOTES:-Manual build}" >> "$GITHUB_OUTPUT"
+            version=$(grep -m1 '^version:' pubspec.yaml | sed -E 's/version:[[:space:]]*([^+]+).*/\1/')
           fi
+
+          if [ "$EVENT_NAME" != "push" ] && [ -n "${INPUT_NOTES}" ]; then
+            printf '%s\n' "$INPUT_NOTES" > release_notes.txt
+          else
+            ./scripts/release_notes.sh "$version" > release_notes.txt
+          fi
+
+          echo "--- release notes ---"
+          cat release_notes.txt
 
       - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
@@ -119,7 +128,7 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: ${{ steps.settings.outputs.groups }}
           file: build/app/outputs/flutter-apk/app-release.apk
-          releaseNotes: ${{ steps.settings.outputs.notes }}
+          releaseNotesFile: release_notes.txt
 
       - name: Keep the APK as a build artifact
         uses: actions/upload-artifact@v4

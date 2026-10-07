@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_scan/core/l10n/l10n.dart';
 import 'package:mi_scan/domain/entities/scan_filter.dart';
-import 'package:mi_scan/domain/usecases/document_usecases.dart';
 import 'package:mi_scan/presentation/home/home_controller.dart';
 import 'package:mi_scan/presentation/home/home_screen.dart';
 import 'package:mi_scan/presentation/review/review_screen.dart';
 import 'package:mi_scan/presentation/scanner/scan_session.dart';
 import 'package:mi_scan/presentation/widgets/scan_filter_label.dart';
 
-import '../helpers/fakes.dart';
 import '../helpers/pump_helpers.dart';
 
 Map<String, dynamic> _arb(String locale) =>
@@ -22,15 +20,7 @@ Set<String> _messageKeys(Map<String, dynamic> arb) => arb.keys.where((k) => !k.s
 
 Future<AppLocalizations> _load(String code) => AppLocalizations.delegate.load(Locale(code));
 
-HomeController _homeController() {
-  final repo = InMemoryDocumentRepository();
-  return HomeController(
-    listDocuments: ListDocuments(repo),
-    renameDocument: RenameDocument(repo),
-    deleteDocument: DeleteDocument(repo),
-    shareService: FakeShareService(),
-  );
-}
+HomeController _homeController() => makeHomeController();
 
 Future<ScanSession> _noSession() async => throw UnimplementedError();
 

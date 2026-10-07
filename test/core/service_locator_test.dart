@@ -4,8 +4,14 @@ import 'package:mi_scan/domain/repositories/document_repository.dart';
 import 'package:mi_scan/domain/services/image_processor.dart';
 import 'package:mi_scan/presentation/home/home_controller.dart';
 import 'package:mi_scan/presentation/scanner/scan_session.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   setUp(() async {
     await sl.reset();
     configureDependencies();

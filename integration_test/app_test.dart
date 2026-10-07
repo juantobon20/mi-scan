@@ -23,6 +23,7 @@ void main() {
 
   late InMemoryDocumentRepository repo;
   late InMemoryFolderRepository folderRepo;
+  late FakeTextRecognizer recognizer;
   late FakeShareService share;
   late File photo;
 
@@ -33,6 +34,7 @@ void main() {
     folderRepo = InMemoryFolderRepository(repo);
     share = FakeShareService();
     final processor = FakeImageProcessor();
+    recognizer = FakeTextRecognizer();
     sl
       ..registerSingleton<DocumentRepository>(repo)
       ..registerSingleton<ShareService>(share)
@@ -47,6 +49,8 @@ void main() {
       ..registerSingleton(CreateFolder(folderRepo))
       ..registerSingleton(RenameFolder(folderRepo))
       ..registerSingleton(DeleteFolder(folderRepo))
+      ..registerSingleton(RecognizeDocumentText(recognizer, repo))
+      ..registerSingleton(GetDocumentText(repo))
       ..registerFactory(() => HomeController(
             listDocuments: sl(),
             renameDocument: sl(),
@@ -56,6 +60,8 @@ void main() {
             createFolder: sl(),
             renameFolder: sl(),
             deleteFolder: sl(),
+            recognizeText: sl(),
+            getText: sl(),
             shareService: sl(),
           ))
       ..registerSingleton<ScanSessionFactory>(() async => ScanSession(

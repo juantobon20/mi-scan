@@ -55,6 +55,7 @@ HomeController makeHomeController({
   InMemoryDocumentRepository? documents,
   InMemoryFolderRepository? folders,
   FakeShareService? share,
+  FakeTextRecognizer? recognizer,
   Duration searchDebounce = const Duration(milliseconds: 10),
 }) {
   final docs = documents ?? InMemoryDocumentRepository();
@@ -68,6 +69,8 @@ HomeController makeHomeController({
     createFolder: CreateFolder(folderRepo),
     renameFolder: RenameFolder(folderRepo),
     deleteFolder: DeleteFolder(folderRepo),
+    recognizeText: RecognizeDocumentText(recognizer ?? FakeTextRecognizer(), docs),
+    getText: GetDocumentText(docs),
     shareService: share ?? FakeShareService(),
     searchDebounce: searchDebounce,
   );

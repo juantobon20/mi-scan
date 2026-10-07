@@ -7,6 +7,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Añadido
+- OCR en el dispositivo con ML Kit (`TextRecognizer`, `MlKitTextRecognizer`, `RecognizeDocumentText`, `GetDocumentText`): al guardar un escaneo se reconoce el texto de sus páginas en segundo plano, se guarda en la base de datos y se muestra «Texto buscable» y «Reconociendo texto...» en la lista.
+- La búsqueda también encuentra documentos por su texto reconocido (cada palabra en el nombre o en el contenido, sin distinguir mayúsculas ni acentos).
+- Pantalla «Ver texto» para leer y copiar el texto reconocido.
+- Migración de la base de datos a la versión 2 (`content_text` y `search_content`), con una lista de pasos de migración y pruebas de actualización desde la versión 1 que conservan las filas.
+- `integration_test/ocr_test.dart` (ML Kit y base reales) y pruebas de migración y de búsqueda por contenido en `integration_test/storage_test.dart`.
 - Carpetas: crear, renombrar y eliminar (los documentos se conservan sin carpeta), mover documentos con "Mover a carpeta" y guardar los escaneos nuevos en la carpeta abierta.
 - Búsqueda por nombre sin distinguir mayúsculas ni acentos, con varias palabras y combinada con la carpeta.
 - Almacenamiento de los metadatos en SQLite (`sqflite`): `AppDatabase`, `SqliteDocumentRepository`, `SqliteFolderRepository` y `DocumentFiles`; los PDFs guardados por versiones anteriores se importan solos y las filas sin archivo se eliminan.
@@ -28,6 +33,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Al conceder el permiso de cámara por primera vez, la cámara fallaba con "No supported surface combination" porque se abría dos veces a la vez; ahora las operaciones de cámara se serializan y hay pruebas de regresión.
 
 ### Cambiado
+- iOS: el iOS mínimo sube de 13.0 a 15.5 y compilar para iOS requiere CocoaPods, por ML Kit. Los pods de ML Kit no incluyen arm64 para simulador, así que la app ya no se puede ejecutar en simuladores de iOS 26 en Apple Silicon (sí en un iPhone real); las pruebas de integración se ejecutan en Android.
+- `DocumentRepository` incorpora `saveText` y `getText`, y `ScannedDocument` tiene `hasText`.
+- Al volver del escáner, las imágenes de la sesión se conservan hasta que termina el OCR en lugar de borrarse al instante.
 - `DocumentRepository` ahora recibe un `DocumentQuery`, tiene `move` y los documentos tienen `id`, carpeta, número de páginas y fecha de creación; `FileDocumentRepository` fue reemplazado por los repositorios SQLite.
 - El escáner usa solo cámaras traseras: se quitó la cámara frontal.
 - La cámara y la galería están detrás de interfaces del dominio (`CameraService`, `CameraSession`, `GalleryService`) con implementaciones en `data`; `ScannerScreen` y `GalleryPickerScreen` usan `ScannerController` y `GalleryController`, creados por `ScreenFactory`.

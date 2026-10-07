@@ -12,4 +12,8 @@ abstract interface class DocumentRepository {
   Future<ScannedDocument> move(ScannedDocument doc, String? folderId);
 
   Future<void> delete(ScannedDocument doc);
+
+  Future<void> saveText(String documentId, String text);
+
+  Future<String?> getText(String documentId);
 }

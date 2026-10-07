@@ -281,4 +281,123 @@ void main() {
       expect(await h.documents.list(), isEmpty);
     });
   });
+
+  group('recognized text', () {
+    Future<List<String>> find(String text) async =>
+        (await h.documents.list(query: DocumentQuery(text: text))).map((d) => d.name).toList();
+
+    test('a document starts without text', () async {
+      final doc = await h.documents.createFromPages(pages, 'Invoice');
+      expect(doc.hasText, isFalse);
+      expect(await h.documents.getText(doc.id), isNull);
+    });
+
+    test('saveText stores the text and flags the document', () async {
+      final doc = await h.documents.createFromPages(pages, 'Invoice');
+      await h.documents.saveText(doc.id, 'Total due: 120 dollars');
+      expect(await h.documents.getText(doc.id), 'Total due: 120 dollars');
+      expect((await h.documents.list()).single.hasText, isTrue);
+    });
+
+    test('saving again replaces the previous text', () async {
+      final doc = await h.documents.createFromPages(pages, 'Invoice');
+      await h.documents.saveText(doc.id, 'first version');
+      await h.documents.saveText(doc.id, 'second version');
+      expect(await h.documents.getText(doc.id), 'second version');
+      expect(await find('first'), isEmpty);
+      expect(await find('second'), ['Invoice']);
+    });
+
+    test('the text of an unknown document is null and saving it changes nothing', () async {
+      await h.documents.saveText('ghost', 'text');
+      expect(await h.documents.getText('ghost'), isNull);
+    });
+
+    test('search finds documents by their content', () async {
+      final a = await h.documents.createFromPages(pages, 'Scan 1');
+      await h.documents.createFromPages(pages, 'Scan 2');
+      await h.documents.saveText(a.id, 'Mortgage payment receipt');
+      expect(await find('mortgage'), ['Scan 1']);
+    });
+
+    test('content search ignores case and accents', () async {
+      final a = await h.documents.createFromPages(pages, 'Scan');
+      await h.documents.saveText(a.id, 'Declaraci\u00f3n de la RENTA');
+      expect(await find('declaracion'), ['Scan']);
+      expect(await find('renta'), ['Scan']);
+    });
+
+    test('every word must match, each one in the name or in the content', () async {
+      final a = await h.documents.createFromPages(pages, 'Bank letter');
+      await h.documents.saveText(a.id, 'Dear customer, your mortgage was approved');
+      expect(await find('bank mortgage'), ['Bank letter']);
+      expect(await find('bank zebra'), isEmpty);
+      expect(await find('letter approved customer'), ['Bank letter']);
+    });
+
+    test('a document is listed once even if the name and the content both match', () async {
+      final a = await h.documents.createFromPages(pages, 'Invoice');
+      await h.documents.saveText(a.id, 'invoice number 42');
+      expect(await find('invoice'), ['Invoice']);
+    });
+
+    test('wildcards typed by the user stay literal inside the content', () async {
+      final a = await h.documents.createFromPages(pages, 'Scan');
+      await h.documents.saveText(a.id, 'Discount 50% today');
+      await h.documents.createFromPages(pages, 'Other');
+      expect(await find('50%'), ['Scan']);
+      expect(await find('%'), ['Scan']);
+    });
+
+    test('content search works together with the folder filter', () async {
+      final folder = await h.folders.create('Work');
+      final a = await h.documents.createFromPages(pages, 'In folder', folderId: folder.id);
+      final b = await h.documents.createFromPages(pages, 'Outside');
+      await h.documents.saveText(a.id, 'shared words');
+      await h.documents.saveText(b.id, 'shared words');
+      final inFolder = await h.documents.list(query: DocumentQuery(text: 'shared', folderId: folder.id));
+      expect(inFolder.map((d) => d.name), ['In folder']);
+    });
+
+    test('renaming keeps the text and it can still be searched', () async {
+      final doc = await h.documents.createFromPages(pages, 'Before');
+      await h.documents.saveText(doc.id, 'secret phrase');
+      final renamed = await h.documents.rename(doc, 'After');
+      expect(await h.documents.getText(renamed.id), 'secret phrase');
+      expect(await find('secret'), ['After']);
+      expect((await h.documents.list()).single.hasText, isTrue);
+    });
+
+    test('moving keeps the text', () async {
+      final folder = await h.folders.create('Work');
+      final doc = await h.documents.createFromPages(pages, 'Doc');
+      await h.documents.saveText(doc.id, 'kept text');
+      await h.documents.move(doc, folder.id);
+      expect(await h.documents.getText(doc.id), 'kept text');
+    });
+
+    test('deleting the document deletes its text', () async {
+      final doc = await h.documents.createFromPages(pages, 'Doc');
+      await h.documents.saveText(doc.id, 'gone soon');
+      await h.documents.delete(doc);
+      expect(await h.documents.getText(doc.id), isNull);
+      expect(await find('gone'), isEmpty);
+    });
+
+    test('the text survives closing and reopening the database', () async {
+      final doc = await h.documents.createFromPages(pages, 'Doc');
+      await h.documents.saveText(doc.id, 'persistent text');
+      await h.reopen();
+      expect(await h.documents.getText(doc.id), 'persistent text');
+      expect(await find('persistent'), ['Doc']);
+    });
+
+    test('very long texts are stored whole', () async {
+      final doc = await h.documents.createFromPages(pages, 'Long');
+      final long = List.filled(5000, 'lorem ipsum dolor sit amet').join(' ');
+      await h.documents.saveText(doc.id, long);
+      expect((await h.documents.getText(doc.id))!.length, long.length);
+      expect(await find('dolor'), ['Long']);
+    });
+  });
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_scan/domain/entities/document_query.dart';
 import 'package:mi_scan/domain/entities/folder.dart';
+import 'package:mi_scan/domain/entities/scan_page.dart';
 import 'package:mi_scan/domain/entities/scanned_document.dart';
 import 'package:mi_scan/presentation/home/home_controller.dart';
 
@@ -271,6 +272,91 @@ void main() {
     test('share sends the PDF path', () async {
       await ctrl.share(contract);
       expect(share.shared, [contract.pdfPath]);
+    });
+  });
+
+  group('text recognition', () {
+    late FakeTextRecognizer recognizer;
+    const pages = [ScanPage('/p1.jpg', 10, 20), ScanPage('/p2.jpg', 10, 20)];
+
+    setUp(() {
+      recognizer = FakeTextRecognizer(texts: {'/p1.jpg': 'Total 120', '/p2.jpg': 'Thank you'});
+      ctrl.dispose();
+      ctrl = makeHomeController(documents: docs, folders: folders, share: share, recognizer: recognizer);
+    });
+
+    test('stores the text and flags the document', () async {
+      await ctrl.load();
+      final outcome = await ctrl.recognizeText(contract, pages);
+      expect(outcome.hasText, isTrue);
+      expect(docs.texts[contract.id], 'Total 120\n\nThank you');
+      expect(ctrl.documents!.firstWhere((d) => d.id == contract.id).hasText, isTrue);
+    });
+
+    test('marks the document as recognizing while it runs', () async {
+      recognizer.gate = Completer<void>();
+      await ctrl.load();
+      final running = ctrl.recognizeText(contract, pages);
+      await Future<void>.delayed(Duration.zero);
+      expect(ctrl.isRecognizing(contract), isTrue);
+      expect(ctrl.isRecognizing(invoice), isFalse);
+      expect(ctrl.recognizingIds, {contract.id});
+      recognizer.gate!.complete();
+      await running;
+      expect(ctrl.isRecognizing(contract), isFalse);
+      expect(ctrl.recognizingIds, isEmpty);
+    });
+
+    test('notifies when recognition starts and when it ends', () async {
+      await ctrl.load();
+      var notifications = 0;
+      ctrl.addListener(() => notifications++);
+      await ctrl.recognizeText(contract, pages);
+      expect(notifications, greaterThanOrEqualTo(2));
+    });
+
+    test('several documents can be recognized at the same time', () async {
+      recognizer.gate = Completer<void>();
+      await ctrl.load();
+      final a = ctrl.recognizeText(contract, pages);
+      final b = ctrl.recognizeText(invoice, pages);
+      await Future<void>.delayed(Duration.zero);
+      expect(ctrl.recognizingIds, {contract.id, invoice.id});
+      recognizer.gate!.complete();
+      await Future.wait([a, b]);
+      expect(ctrl.recognizingIds, isEmpty);
+    });
+
+    test('reports failures without throwing', () async {
+      recognizer.failing.addAll(pages.map((p) => p.path));
+      await ctrl.load();
+      final outcome = await ctrl.recognizeText(contract, pages);
+      expect(outcome.hasText, isFalse);
+      expect(outcome.failedPages, 2);
+      expect(ctrl.isRecognizing(contract), isFalse);
+    });
+
+    test('a failure while saving the text is reported as a failed recognition', () async {
+      docs.saveTextError = StateError('disk full');
+      await ctrl.load();
+      final outcome = await ctrl.recognizeText(contract, pages);
+      expect(outcome.hasText, isFalse);
+      expect(outcome.failedPages, 2);
+      expect(ctrl.isRecognizing(contract), isFalse);
+    });
+
+    test('loadText returns the stored text or null', () async {
+      expect(await ctrl.loadText(contract), isNull);
+      await ctrl.recognizeText(contract, pages);
+      expect(await ctrl.loadText(contract), contains('Total 120'));
+    });
+
+    test('documents can be found by their recognized text', () async {
+      await ctrl.load();
+      await ctrl.recognizeText(contract, pages);
+      ctrl.setSearchText('total 120');
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(ctrl.documents!.map((d) => d.name), ['Contract']);
     });
   });
 

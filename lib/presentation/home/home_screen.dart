@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,11 +7,13 @@ import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/folder.dart';
+import '../../domain/entities/scan_page.dart';
 import '../../domain/entities/scanned_document.dart';
 import '../navigation/screen_factory.dart';
 import '../scanner/scan_session.dart';
 import '../scanner/scanner_screen.dart';
 import '../widgets/name_dialog.dart';
+import 'document_text_screen.dart';
 import 'home_controller.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -69,13 +72,30 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    session.disposeFiles();
     if (doc == null) {
+      session.disposeFiles();
       await ctrl.load();
       return;
     }
+    final pages = List.of(session.pages);
     final stored = await ctrl.onDocumentScanned(doc);
+    unawaited(_recognize(stored, pages).whenComplete(session.disposeFiles));
     await ctrl.share(stored);
+  }
+
+  Future<void> _recognize(ScannedDocument doc, List<ScanPage> pages) async {
+    final outcome = await ctrl.recognizeText(doc, pages);
+    if (!mounted || outcome.hasText || outcome.failedPages == 0) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.ocrFailed(doc.name))));
+  }
+
+  Future<void> _viewText(ScannedDocument d) async {
+    final text = await ctrl.loadText(d);
+    if (!mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => DocumentTextScreen(title: d.name, text: text)),
+    );
   }
 
   Future<void> _rename(ScannedDocument d) async {
@@ -258,7 +278,9 @@ class _HomeScreenState extends State<HomeScreen> {
         onShare: () => ctrl.share(docs[i]),
         onRename: () => _rename(docs[i]),
         onMove: () => _move(docs[i]),
+        onViewText: () => _viewText(docs[i]),
         onDelete: () => _delete(docs[i]),
+        recognizing: ctrl.isRecognizing(docs[i]),
       ),
     );
   }
@@ -338,10 +360,13 @@ class _DocTile extends StatelessWidget {
     required this.onShare,
     required this.onRename,
     required this.onMove,
+    required this.onViewText,
     required this.onDelete,
+    required this.recognizing,
   });
   final ScannedDocument doc;
-  final VoidCallback onShare, onRename, onMove, onDelete;
+  final VoidCallback onShare, onRename, onMove, onViewText, onDelete;
+  final bool recognizing;
 
   @override
   Widget build(BuildContext context) {
@@ -360,19 +385,64 @@ class _DocTile extends StatelessWidget {
         ),
       ),
       title: Text(doc.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(doc.pageCount > 0 ? '$details · ${context.l10n.reviewTitle(doc.pageCount)}' : details),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(doc.pageCount > 0 ? '$details · ${context.l10n.reviewTitle(doc.pageCount)}' : details),
+          if (recognizing)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                key: const Key('ocr_progress'),
+                children: [
+                  const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      context.l10n.ocrRecognizing,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (doc.hasText)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                key: const Key('has_text'),
+                children: [
+                  Icon(Icons.text_snippet_outlined, size: 14, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      context.l10n.searchableText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
       onTap: onShare,
       trailing: PopupMenuButton<String>(
         onSelected: (v) => switch (v) {
           'share' => onShare(),
           'rename' => onRename(),
           'move' => onMove(),
+          'text' => onViewText(),
           _ => onDelete(),
         },
         itemBuilder: (_) => [
           PopupMenuItem(value: 'share', child: Text(context.l10n.menuShare)),
           PopupMenuItem(value: 'rename', child: Text(context.l10n.menuRename)),
           PopupMenuItem(value: 'move', child: Text(context.l10n.menuMove)),
+          if (doc.hasText) PopupMenuItem(value: 'text', child: Text(context.l10n.menuViewText)),
           PopupMenuItem(value: 'delete', child: Text(context.l10n.menuDelete)),
         ],
       ),

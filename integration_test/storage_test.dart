@@ -70,4 +70,47 @@ void main() {
     expect(doc.name, 'Legacy');
     expect(doc.pageCount, 2);
   });
+
+  testWidgets('upgrades a version 1 database keeping its data', (tester) async {
+    final old = await databaseFactory.openDatabase(
+      h.dbPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) async {
+          await db.execute(
+            'CREATE TABLE folders (id TEXT PRIMARY KEY, name TEXT NOT NULL, name_key TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL)',
+          );
+          await db.execute(
+            'CREATE TABLE documents (id TEXT PRIMARY KEY, name TEXT NOT NULL, search_name TEXT NOT NULL, pdf_path TEXT NOT NULL UNIQUE, thumb_path TEXT, size_bytes INTEGER NOT NULL, page_count INTEGER NOT NULL, created_at INTEGER NOT NULL, modified_at INTEGER NOT NULL, folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL)',
+          );
+          await db.insert('documents', {
+            'id': 'old1',
+            'name': 'Old invoice',
+            'search_name': 'old invoice',
+            'pdf_path': '${h.pdfDir.path}/Old invoice.pdf',
+            'size_bytes': 10,
+            'page_count': 1,
+            'created_at': 1,
+            'modified_at': 2,
+          });
+        },
+      ),
+    );
+    await old.close();
+    File('${h.pdfDir.path}/Old invoice.pdf').writeAsStringSync('/Type /Page');
+    await h.reopen();
+
+    final doc = (await h.documents.list()).single;
+    expect(doc.id, 'old1');
+    expect(doc.hasText, isFalse);
+    await h.documents.saveText(doc.id, 'migrated text');
+    expect((await h.documents.list(query: const DocumentQuery(text: 'migrated'))).single.id, 'old1');
+  });
+
+  testWidgets('searches inside the recognized text', (tester) async {
+    final doc = await h.documents.createFromPages(pages, 'Scan');
+    await h.documents.saveText(doc.id, 'Declaraci\u00f3n de la renta');
+    expect((await h.documents.list(query: const DocumentQuery(text: 'declaracion'))).single.hasText, isTrue);
+    expect(await h.documents.list(query: const DocumentQuery(text: 'zebra')), isEmpty);
+  });
 }

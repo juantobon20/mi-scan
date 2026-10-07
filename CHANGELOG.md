@@ -7,9 +7,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Añadido
+- La app soporta inglés y español: usa español si el idioma del dispositivo es `es` (incluidas variantes) y inglés en cualquier otro caso. Textos en `lib/l10n/*.arb` generados con `flutter gen-l10n`, extensión `context.l10n` y pruebas de localización (claves, placeholders, plurales y resolución de idioma).
+- El job `CI` verifica que los archivos de localización generados estén al día.
+- `ios/Runner/Info.plist` declara `en` y `es` en `CFBundleLocalizations`, necesario para que iOS entregue el idioma español a la app.
 - El README explica cómo manejar los arreglos durante la estabilización de una release: se corrigen solo en la rama de release, sin traer `develop`, y se propagan con el back-merge `main → develop`.
 
 ### Cambiado
+- Los textos de la interfaz ya no están escritos en los widgets: se leen de los archivos ARB. `ScanFilter` ya no tiene etiqueta (se resuelve en presentación) y `formatDocSubtitle` usa el idioma activo para fecha y decimales.
+- `tool/check_english.dart` no revisa `lib/l10n/`, donde es legítimo el español.
 - El README ya no incluye los pasos para crear el keystore, probar la firma en local ni subir los secretos, porque están configurados; se conserva la descripción del flujo y los nombres de los secretos.
 - El README describe que el workflow verifica la firma con `apksigner`.
 - El README ya no documenta la protección de ramas ni los scripts de instalación de hooks, calidad y reglas de GitHub; las ramas ya están protegidas y los hooks se activan con `git config core.hooksPath .githooks`.

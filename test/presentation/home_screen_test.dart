@@ -61,8 +61,8 @@ void main() {
   testWidgets('lists documents with name, date and size', (tester) async {
     await pumpHome(tester, [sampleDoc('Contract'), sampleDoc('Receipt', sizeBytes: 5 * 1024 * 1024)]);
     expect(find.text('Contract'), findsOneWidget);
-    expect(find.text('05/03/2026 09:07 · 2 KB'), findsOneWidget);
-    expect(find.text('05/03/2026 09:07 · 5.0 MB'), findsOneWidget);
+    expect(find.text('3/5/2026 09:07 · 2 KB'), findsOneWidget);
+    expect(find.text('3/5/2026 09:07 · 5.0 MB'), findsOneWidget);
     expect(find.byIcon(Icons.picture_as_pdf), findsNWidgets(2));
   });
 

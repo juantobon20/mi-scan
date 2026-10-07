@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/scan_page.dart';
@@ -27,7 +28,7 @@ class ScannerScreen extends StatefulWidget {
 
 class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserver {
   CameraController? _cam;
-  String? _error;
+  _CameraProblem? _error;
   FlashMode _flash = FlashMode.off;
 
   List<Offset> _quad = const [];
@@ -94,11 +95,11 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     } on CameraException catch (e) {
       if (mounted) {
         setState(() => _error = e.code.contains('Denied')
-            ? 'Camera permission denied. Enable it in Settings to scan.'
-            : 'Camera error: ${e.description ?? e.code}');
+            ? const _CameraProblem.permissionDenied()
+            : _CameraProblem.failure(e.description ?? e.code));
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not open the camera');
+      if (mounted) setState(() => _error = const _CameraProblem.cannotOpen());
     }
   }
 
@@ -163,7 +164,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not take the photo: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.takePhotoError('$e'))));
       }
     } finally {
       _quad = const [];
@@ -239,11 +240,11 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       final ok = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
-          title: const Text('Discard this scan?'),
-          content: Text('${session.pages.length} unsaved page(s) will be lost.'),
+          title: Text(context.l10n.discardScanTitle),
+          content: Text(context.l10n.discardScanMessage(session.pages.length)),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Keep scanning')),
-            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Discard')),
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.actionKeepScanning)),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.actionDiscard)),
           ],
         ),
       );
@@ -287,7 +288,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
                   child: _error != null
                       ? Padding(
                           padding: const EdgeInsets.all(32),
-                          child: Text(_error!,
+                          child: Text(_error!.message(context.l10n),
                               textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
                         )
                       : cam == null || !cam.value.isInitialized
@@ -309,7 +310,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _SideButton(icon: Icons.photo_library_outlined, label: 'Gallery', onTap: _gallery),
+                    _SideButton(icon: Icons.photo_library_outlined, label: context.l10n.galleryButton, onTap: _gallery),
                     GestureDetector(
                       onTap: _capture,
                       child: Container(
@@ -341,6 +342,23 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     );
   }
 }
+
+class _CameraProblem {
+  const _CameraProblem.permissionDenied() : _details = null, _kind = _CameraProblemKind.permissionDenied;
+  const _CameraProblem.cannotOpen() : _details = null, _kind = _CameraProblemKind.cannotOpen;
+  const _CameraProblem.failure(String this._details) : _kind = _CameraProblemKind.failure;
+
+  final _CameraProblemKind _kind;
+  final String? _details;
+
+  String message(AppLocalizations l10n) => switch (_kind) {
+        _CameraProblemKind.permissionDenied => l10n.cameraPermissionDenied,
+        _CameraProblemKind.cannotOpen => l10n.cameraOpenError,
+        _CameraProblemKind.failure => l10n.cameraError(_details ?? ''),
+      };
+}
+
+enum _CameraProblemKind { permissionDenied, cannotOpen, failure }
 
 class _SideButton extends StatelessWidget {
   const _SideButton({required this.icon, required this.label, required this.onTap});

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/scanned_document.dart';
@@ -7,7 +8,11 @@ import '../scanner/scan_session.dart';
 import 'name_dialog.dart';
 
 Future<ScannedDocument?> saveSessionAsPdf(BuildContext context, ScanSession session) async {
-  final name = await showNameDialog(context, title: 'PDF name', initial: defaultScanName(DateTime.now()));
+  final name = await showNameDialog(
+    context,
+    title: context.l10n.pdfNameTitle,
+    initial: context.l10n.scanDefaultName(formatScanTimestamp(DateTime.now())),
+  );
   if (name == null || !context.mounted) return null;
 
   showDialog<void>(
@@ -22,7 +27,7 @@ Future<ScannedDocument?> saveSessionAsPdf(BuildContext context, ScanSession sess
     return await session.saveAsPdf(name);
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not create the PDF: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.pdfCreateError('$e'))));
     }
     return null;
   } finally {

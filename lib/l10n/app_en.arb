@@ -136,5 +136,42 @@
   "modeSingle": "Single",
   "modeBatch": "Batch",
   "batchDone": "Done",
-  "zoomTooltip": "Zoom"
+  "zoomTooltip": "Zoom",
+  "searchTooltip": "Search",
+  "searchClearTooltip": "Clear search",
+  "searchHint": "Search documents",
+  "searchNoResults": "No documents match \"{query}\".",
+  "@searchNoResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "folderAll": "All",
+  "folderNew": "New folder",
+  "folderNameTitle": "Folder name",
+  "folderEmpty": "This folder is empty.\nMove a document here or scan a new one.",
+  "folderRename": "Rename folder",
+  "folderDelete": "Delete folder",
+  "folderDeleteTitle": "Delete folder?",
+  "folderDeleteMessage": "\"{name}\" will be deleted. Its documents are kept and moved out of the folder.",
+  "@folderDeleteMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "menuMove": "Move to folder",
+  "moveTitle": "Move to",
+  "moveNoFolder": "No folder",
+  "genericError": "Something went wrong: {error}",
+  "@genericError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

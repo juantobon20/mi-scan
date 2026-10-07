@@ -2,14 +2,18 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:mi_scan/core/utils/search_text.dart';
 import 'package:mi_scan/data/services/app_directories.dart';
 import 'package:mi_scan/domain/entities/camera_info.dart';
+import 'package:mi_scan/domain/entities/document_query.dart';
+import 'package:mi_scan/domain/entities/folder.dart';
 import 'package:mi_scan/domain/entities/gallery_image.dart';
 import 'package:mi_scan/domain/entities/quad.dart';
 import 'package:mi_scan/domain/entities/scan_filter.dart';
 import 'package:mi_scan/domain/entities/scan_page.dart';
 import 'package:mi_scan/domain/entities/scanned_document.dart';
 import 'package:mi_scan/domain/repositories/document_repository.dart';
+import 'package:mi_scan/domain/repositories/folder_repository.dart';
 import 'package:mi_scan/domain/services/camera_service.dart';
 import 'package:mi_scan/domain/services/gallery_service.dart';
 import 'package:mi_scan/domain/services/image_processor.dart';
@@ -103,35 +107,115 @@ class FakeImageProcessor implements ImageProcessor {
 class InMemoryDocumentRepository implements DocumentRepository {
   InMemoryDocumentRepository([List<ScannedDocument> initial = const []]) : docs = [...initial];
   final List<ScannedDocument> docs;
+  final queries = <DocumentQuery>[];
+  Object? listError;
+  var _next = 0;
 
   @override
-  Future<List<ScannedDocument>> list() async => [...docs];
+  Future<List<ScannedDocument>> list({DocumentQuery query = const DocumentQuery()}) async {
+    queries.add(query);
+    final error = listError;
+    if (error != null) throw error;
+    final tokens = searchTokens(query.text);
+    return [
+      for (final d in docs)
+        if ((query.folderId == null || d.folderId == query.folderId) &&
+            tokens.every(normalizeSearchText(d.name).contains))
+          d,
+    ];
+  }
 
   @override
-  Future<ScannedDocument> createFromPages(List<ScanPage> pages, String name) async {
-    final d = ScannedDocument(pdfPath: '/mem/$name.pdf', name: name, modified: DateTime(2026, 1, 1), sizeBytes: 2048);
+  Future<ScannedDocument> createFromPages(List<ScanPage> pages, String name, {String? folderId}) async {
+    final d = ScannedDocument(
+      id: 'doc${_next++}',
+      pdfPath: '/mem/$name.pdf',
+      name: name,
+      modified: DateTime(2026, 1, 1),
+      sizeBytes: 2048,
+      pageCount: pages.length,
+      folderId: folderId,
+    );
     docs.insert(0, d);
     return d;
   }
 
   @override
   Future<ScannedDocument> rename(ScannedDocument doc, String newName) async {
-    final i = docs.indexOf(doc);
-    final d = ScannedDocument(
-        pdfPath: '/mem/$newName.pdf', name: newName, modified: doc.modified, sizeBytes: doc.sizeBytes);
-    docs[i] = d;
-    return d;
+    final i = docs.indexWhere((d) => d.id == doc.id);
+    final renamed = doc.copyWith(name: newName, pdfPath: '/mem/$newName.pdf');
+    docs[i] = renamed;
+    return renamed;
   }
 
   @override
-  Future<void> delete(ScannedDocument doc) async => docs.remove(doc);
+  Future<ScannedDocument> move(ScannedDocument doc, String? folderId) async {
+    final i = docs.indexWhere((d) => d.id == doc.id);
+    final moved = doc.movedTo(folderId);
+    docs[i] = moved;
+    return moved;
+  }
+
+  @override
+  Future<void> delete(ScannedDocument doc) async => docs.removeWhere((d) => d.id == doc.id);
 }
 
-ScannedDocument sampleDoc(String name, {int sizeBytes = 2048, DateTime? modified}) => ScannedDocument(
+class InMemoryFolderRepository implements FolderRepository {
+  InMemoryFolderRepository(this.documents, [List<Folder> initial = const []]) : folders = [...initial];
+
+  final InMemoryDocumentRepository documents;
+  final List<Folder> folders;
+  Object? createError;
+  var _next = 0;
+
+  @override
+  Future<List<FolderSummary>> list() async => [
+        for (final f in [...folders]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())))
+          FolderSummary(f, documents.docs.where((d) => d.folderId == f.id).length),
+      ];
+
+  @override
+  Future<Folder> create(String name) async {
+    final error = createError;
+    if (error != null) throw error;
+    final folder = Folder(id: 'folder${_next++}', name: name.trim(), createdAt: DateTime(2026, 1, 1));
+    folders.add(folder);
+    return folder;
+  }
+
+  @override
+  Future<Folder> rename(Folder folder, String newName) async {
+    final i = folders.indexWhere((f) => f.id == folder.id);
+    final renamed = folder.copyWith(name: newName.trim());
+    folders[i] = renamed;
+    return renamed;
+  }
+
+  @override
+  Future<void> delete(Folder folder) async {
+    folders.removeWhere((f) => f.id == folder.id);
+    for (var i = 0; i < documents.docs.length; i++) {
+      if (documents.docs[i].folderId == folder.id) documents.docs[i] = documents.docs[i].movedTo(null);
+    }
+  }
+}
+
+ScannedDocument sampleDoc(
+  String name, {
+  int sizeBytes = 2048,
+  DateTime? modified,
+  String? id,
+  String? folderId,
+  int pageCount = 0,
+}) =>
+    ScannedDocument(
+      id: id ?? 'id-$name',
       pdfPath: '/mem/$name.pdf',
       name: name,
       modified: modified ?? DateTime(2026, 3, 5, 9, 7),
       sizeBytes: sizeBytes,
+      folderId: folderId,
+      pageCount: pageCount,
     );
 
 class FakeCameraSession implements CameraSession {

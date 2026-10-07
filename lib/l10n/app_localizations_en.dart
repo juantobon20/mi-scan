@@ -214,4 +214,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get zoomTooltip => 'Zoom';
+
+  @override
+  String get searchTooltip => 'Search';
+
+  @override
+  String get searchClearTooltip => 'Clear search';
+
+  @override
+  String get searchHint => 'Search documents';
+
+  @override
+  String searchNoResults(String query) {
+    return 'No documents match \"$query\".';
+  }
+
+  @override
+  String get folderAll => 'All';
+
+  @override
+  String get folderNew => 'New folder';
+
+  @override
+  String get folderNameTitle => 'Folder name';
+
+  @override
+  String get folderEmpty =>
+      'This folder is empty.\nMove a document here or scan a new one.';
+
+  @override
+  String get folderRename => 'Rename folder';
+
+  @override
+  String get folderDelete => 'Delete folder';
+
+  @override
+  String get folderDeleteTitle => 'Delete folder?';
+
+  @override
+  String folderDeleteMessage(String name) {
+    return '\"$name\" will be deleted. Its documents are kept and moved out of the folder.';
+  }
+
+  @override
+  String get menuMove => 'Move to folder';
+
+  @override
+  String get moveTitle => 'Move to';
+
+  @override
+  String get moveNoFolder => 'No folder';
+
+  @override
+  String genericError(String error) {
+    return 'Something went wrong: $error';
+  }
 }

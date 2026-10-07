@@ -14,7 +14,10 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 - Editor de recorte con esquinas arrastrables, detección automática y **filtros**: Original, Enhanced, Grayscale, B&W (umbral adaptativo).
 - Revisión de páginas: reordenar, rotar, eliminar y agregar más.
 - Generación de **PDF** (A4, vertical u horizontal según la imagen) con miniatura.
-- Lista de documentos: compartir, renombrar (se resuelven colisiones de nombre) y eliminar.
+- Lista de documentos: compartir, renombrar (se resuelven colisiones de nombre), mover a una carpeta y eliminar; cada documento muestra su fecha, tamaño y número de páginas.
+- **Carpetas**: crear, renombrar y eliminar (los documentos de una carpeta eliminada se conservan, sin carpeta). Un escaneo nuevo se guarda en la carpeta que esté abierta.
+- **Búsqueda** por nombre sin distinguir mayúsculas ni acentos: todas las palabras deben coincidir y se combina con la carpeta elegida.
+- **Almacenamiento en SQLite**: los metadatos viven en una base de datos local; los PDFs que guardó una versión anterior sin base de datos se importan solos.
 - Tema claro/oscuro Material 3.
 - Interfaz en **inglés y español** según el idioma del dispositivo (inglés por defecto).
 
@@ -58,13 +61,16 @@ lib/
 ├── domain/                       # Dart puro, sin Flutter ni plugins
 │   ├── entities/                 # Quad, ScanPage, ScanFilter, ScannedDocument, GrayFrame,
 │   │                             # CameraInfo, ZoomRange, FlashSetting, GalleryImage
-│   ├── repositories/             # DocumentRepository (interfaz)
+│   ├── repositories/             # DocumentRepository, FolderRepository (interfaces)
 │   ├── services/                 # ImageProcessor, PdfGenerator, ThumbnailGenerator,
 │   │                             # ShareService, SessionStorage, CameraService/CameraSession,
 │   │                             # GalleryService (interfaces)
-│   └── usecases/                 # ListDocuments, CreateDocument, RenameDocument, DeleteDocument
+│   └── usecases/                 # ListDocuments, CreateDocument, RenameDocument, MoveDocument,
+│                                 # DeleteDocument, ListFolders, CreateFolder, RenameFolder, DeleteFolder
 ├── data/
-│   ├── repositories/file_document_repository.dart   # PDFs en disco + miniaturas
+│   ├── repositories/             # SqliteDocumentRepository, SqliteFolderRepository
+│   ├── storage/                  # AppDatabase (esquema y migraciones), DocumentFiles (PDFs y
+│   │                             # miniaturas en disco), contador de páginas de PDF
 │   └── services/                 # OpenCvImageProcessor, PdfPackageGenerator,
 │       │                         # UiThumbnailGenerator, SharePlusService,
 │       │                         # PathProviderDirectories, FileSessionStorage,
@@ -100,7 +106,7 @@ ScanSession.saveAsPdf ──▶ CreateDocument ──▶ DocumentRepository ─�
 - **El dominio no conoce plugins.** `Quad` usa `dart:math`; la geometría (orden de esquinas, convexidad, suavizado temporal) es lógica pura y se prueba sin dispositivo.
 - **OpenCV aislado detrás de `ImageProcessor`.** La lógica de la app se prueba con un doble. Solo tipos primitivos (`List<double>`, rutas) cruzan el límite del isolate.
 - **Trabajo pesado fuera del hilo de UI.** La detección y los filtros usan `compute`; la detección en vivo se limita a ~5 fps y los frames se submuestrean a ~320 px (`frame_converter.dart`).
-- **Sin base de datos.** Cada documento es `nombre.pdf` + `nombre.pdf.jpg` (miniatura); `FileDocumentRepository` resuelve colisiones (`Doc`, `Doc (2)`, ...) y sanea los nombres.
+- **SQLite para los metadatos, archivos para los PDFs.** Cada documento sigue siendo `nombre.pdf` + `nombre.pdf.jpg` (miniatura) en el directorio de la app, de modo que compartir conserva un nombre legible; la base `mi_scan.db` guarda nombre, ruta, tamaño, páginas, fechas y carpeta. `DocumentFiles` resuelve colisiones (`Doc`, `Doc (2)`, ...) y sanea los nombres.
 
 ### Contratos importantes
 
@@ -118,7 +124,12 @@ Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 | `ImageProcessor.rotate` | Rota 90° en sentido horario sobre el mismo archivo y devuelve el nuevo tamaño. |
 | `ImageProcessor.applyFilter` | Aplica un filtro a una copia reducida (`maxSide`, por defecto 1600 px) y la guarda como JPEG. Usa la misma función de OpenCV que `crop`, así que la vista previa es el resultado real del filtro; en B/N el tamaño del bloque del umbral adaptativo se escala con la reducción para que se vea igual que en el archivo final. |
 | `ScanSession.previewFilter` | Devuelve la imagen filtrada para la vista previa (la original si el filtro es Original). Guarda cada combinación imagen/filtro en el directorio de la sesión, comparte las peticiones simultáneas y no cachea los errores. `discardPreviews` las borra al cerrar el editor. |
-| `DocumentRepository.list` | Más reciente primero; las miniaturas no se listan como documentos. |
+| `DocumentRepository.list` | Recibe un `DocumentQuery` (carpeta y texto). Más reciente primero; las miniaturas no se listan como documentos. La búsqueda divide el texto en palabras, normaliza mayúsculas y acentos (`normalizeSearchText`) y exige que todas aparezcan en el nombre; `%`, `_` y `\` se buscan literalmente. |
+| `DocumentRepository.move` | Cambia la carpeta (`null` = sin carpeta). Mover a una carpeta que no existe falla por la clave foránea. `MoveDocument` no toca el repositorio si la carpeta no cambia. |
+| `FolderRepository` | Los nombres son únicos sin distinguir mayúsculas ni acentos: un repetido recibe un sufijo (`Work`, `Work (2)`). `list` devuelve cada carpeta con su número de documentos, ordenadas por nombre. Eliminar una carpeta deja sus documentos sin carpeta (`ON DELETE SET NULL`). |
+| `AppDatabase` | Abre `mi_scan.db` de forma perezosa, activa las claves foráneas y crea el esquema (`folders`, `documents` y sus índices). `schemaVersion` es 1; los cambios futuros se aplican con `onUpgrade`. |
+| Sincronización con el disco | La primera vez que se usa el repositorio en cada arranque: los PDFs que hay en disco sin fila se importan (nombre, tamaño, fecha de modificación y número de páginas contado en el PDF) y las filas cuyo PDF ya no existe se eliminan. |
+| `HomeController` | Mantiene documentos, carpetas, carpeta elegida y texto de búsqueda. La búsqueda espera 250 ms después de la última tecla, y una respuesta lenta anterior nunca pisa a una más reciente. `onDocumentScanned` mueve el escaneo nuevo a la carpeta abierta. |
 | `ScanSession.move` | Misma semántica que `ReorderableListView.onReorderItem` (índice después de quitar el elemento). |
 | `ScanSession.cropPage` | Devuelve la página recortada pero **no** la agrega; el escáner la agrega con `add`. |
 | `saveSessionAsPdf` | Pide un nombre, muestra un diálogo de progreso y devuelve `null` si se cancela o falla (se muestra un snackbar). |
@@ -159,11 +170,12 @@ flutter test --coverage
 | Tipo | Qué cubre |
 |---|---|
 | Unitarias de dominio | `Quad` (orden, convexidad, suavizado, serialización), casos de uso (con `mocktail`) |
-| Unitarias de datos | `FileDocumentRepository` contra un directorio temporal real: crear, listar, renombrar, eliminar, colisiones |
+| Unitarias de datos | Repositorios SQLite contra una base real (FFI en el equipo) y un directorio temporal: crear, listar, buscar (mayúsculas, acentos, varias palabras, comodines literales), carpetas, mover, renombrar, eliminar, importar PDFs existentes, persistencia al reabrir y esquema |
 | Unitarias de presentación | `ScanSession`, `HomeController`, `downsampleToGray` (YUV/BGRA, `bytesPerRow`), formateadores, grafo de DI |
 | Widgets | `HomeScreen` (vacío, carga, error/reintento, renombrar, eliminar, compartir), `ReviewScreen`, `CropScreen` (filtros, guardar/agregar/cancelar, lote, arrastre), `QuadPainter` |
 | Localización | Claves y placeholders idénticos en los ARB, plurales, resolución de idioma (`es`, `es-MX`, idiomas no soportados → inglés) y pantallas en español |
 | OpenCV real | `integration_test/opencv_filters_test.dart` ejecuta el procesador real en un simulador o dispositivo: Grises deja canales iguales, B/N deja solo píxeles blancos y negros, Mejorado aclara la imagen, la vista previa respeta `maxSide` sin ampliar, y el recorte aplica el mismo filtro que la vista previa |
+| SQLite real | `integration_test/storage_test.dart` ejecuta los mismos repositorios con el plugin nativo de `sqflite` en un simulador o dispositivo: CRUD, búsqueda, carpetas, claves foráneas, persistencia e importación |
 | Integración | Flujo completo con el árbol real de widgets y el contenedor de DI en un simulador iOS: listar → renombrar → compartir → eliminar; abrir y cerrar el escáner |
 
 Los dobles de prueba están en `test/helpers/fakes.dart` (repositorio en memoria, procesador de imágenes, servicio de compartir, etc.).
@@ -460,5 +472,6 @@ Cumplimiento:
 - Los factores 0,5x y 2x del cambio de lente en teléfonos con lentes separados son estimaciones: el plugin `camera` no expone las distancias focales, por lo que el encuadre puede dar un pequeño salto al cambiar. Solo se validó en un Galaxy S23 Ultra, que expone la multicámara lógica.
 - La detección de bordes de `OpenCvImageProcessor` (`detectInFile`, `detectInFrame`) no tiene pruebas automatizadas; los filtros, el recorte y la reducción sí se verifican con OpenCV real en el simulador (`integration_test/opencv_filters_test.dart`).
 - Solo hay dos idiomas (inglés y español) y no existe un selector de idioma dentro de la app.
-- No hay persistencia de metadatos más allá del sistema de archivos (sin búsqueda ni etiquetas).
+- No hay etiquetas ni búsqueda dentro del contenido de los documentos (llega con el OCR).
+- Las carpetas son un solo nivel (no hay subcarpetas) y un documento pertenece a una sola carpeta.
 - No están configurados la firma de release, la distribución en iOS ni el versionado automático.

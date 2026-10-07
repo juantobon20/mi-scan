@@ -7,6 +7,7 @@ import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/camera_info.dart';
+import '../../domain/entities/quad.dart';
 import '../../domain/entities/scan_page.dart';
 import '../../domain/entities/scanned_document.dart';
 import '../../domain/services/camera_service.dart';
@@ -18,6 +19,7 @@ import '../widgets/quad_painter.dart';
 import '../widgets/save_pdf.dart';
 import 'scan_session.dart';
 import 'scanner_controller.dart';
+import 'zoom_scale.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key, required this.session, required this.controller, required this.factory});
@@ -236,13 +238,21 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
         child: Stack(
           fit: StackFit.expand,
           children: [
-            widget.factory.previewBuilder(camera),
-            CustomPaint(painter: QuadPainter(ctrl.quad?.offsets ?? const [])),
+            RepaintBoundary(child: widget.factory.previewBuilder(camera)),
+            ValueListenableBuilder<Quad?>(
+              valueListenable: ctrl.quadListenable,
+              builder: (context, quad, _) => CustomPaint(painter: QuadPainter(quad?.offsets ?? const [])),
+            ),
             Positioned(
               bottom: 8,
               left: 0,
               right: 0,
-              child: Center(child: _ZoomBadge(zoom: ctrl.zoom)),
+              child: Center(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: ctrl.zoomListenable,
+                  builder: (context, zoom, _) => _ZoomBadge(zoom: zoom),
+                ),
+              ),
             ),
           ],
         ),
@@ -326,14 +336,15 @@ class _ZoomSlider extends StatelessWidget {
         children: [
           const Icon(Icons.zoom_out, color: Colors.white70, size: 20),
           Expanded(
-            child: Slider(
-              key: const Key('zoom_slider'),
-              min: range.min,
-              max: range.max,
-              value: controller.zoom.clamp(range.min, range.max),
-              activeColor: kScanColor,
-              semanticFormatterCallback: (_) => context.l10n.zoomTooltip,
-              onChanged: controller.setZoom,
+            child: ValueListenableBuilder<double>(
+              valueListenable: controller.zoomListenable,
+              builder: (context, zoom, _) => Slider(
+                key: const Key('zoom_slider'),
+                value: zoomToSliderValue(zoom, range),
+                activeColor: kScanColor,
+                semanticFormatterCallback: (_) => context.l10n.zoomTooltip,
+                onChanged: (value) => controller.setZoom(sliderValueToZoom(value, range)),
+              ),
             ),
           ),
           const Icon(Icons.zoom_in, color: Colors.white70, size: 20),

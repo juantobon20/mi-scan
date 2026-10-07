@@ -286,6 +286,105 @@ void main() {
     });
   });
 
+  group('smooth zoom', () {
+    late ScannerController smooth;
+
+    setUp(() {
+      service = FakeCameraService(cameras: [wide]);
+      smooth = ScannerController(
+        cameraService: service,
+        session: buildSession(dir, processor: processor),
+        zoomIdleDelay: const Duration(milliseconds: 40),
+      );
+    });
+
+    tearDown(() => smooth.dispose());
+
+    int count(String call) => service.opened.single.calls.where((c) => c == call).length;
+
+    test('stops the frame stream while the zoom is changing, only once per gesture', () async {
+      await smooth.initialize();
+      for (final z in [1.2, 1.5, 1.8, 2.2, 2.8]) {
+        await smooth.setZoom(z);
+      }
+      expect(count('stopFrames'), 1);
+      expect(service.opened.single.streaming, isFalse);
+    });
+
+    test('restarts the stream shortly after the zoom stops', () async {
+      await smooth.initialize();
+      await smooth.setZoom(2);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(service.opened.single.streaming, isTrue);
+      expect(count('startFrames'), 2);
+    });
+
+    test('keeps postponing the restart while the zoom keeps moving', () async {
+      await smooth.initialize();
+      for (var i = 0; i < 6; i++) {
+        await smooth.setZoom(1.1 + i * 0.2);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(service.opened.single.streaming, isFalse);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(service.opened.single.streaming, isTrue);
+    });
+
+    test('a new gesture after the restart pauses the stream again', () async {
+      await smooth.initialize();
+      await smooth.setZoom(2);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      await smooth.setZoom(3);
+      expect(count('stopFrames'), 2);
+    });
+
+    test('does not restart the stream while a photo is being taken', () async {
+      await smooth.initialize();
+      await smooth.setZoom(2);
+      await smooth.capture();
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(service.opened.single.streaming, isFalse);
+      await smooth.finishCapture();
+      expect(service.opened.single.streaming, isTrue);
+    });
+
+    test('does not touch the stream after the controller is disposed', () async {
+      await smooth.initialize();
+      final session = service.opened.single;
+      await smooth.setZoom(2);
+      smooth.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(session.calls.where((c) => c == 'startFrames'), hasLength(1));
+      smooth = ScannerController(cameraService: service, session: buildSession(dir, processor: processor));
+    });
+
+    test('zoom changes do not rebuild the whole screen', () async {
+      await smooth.initialize();
+      var structural = 0;
+      var zoomUpdates = 0;
+      smooth.addListener(() => structural++);
+      smooth.zoomListenable.addListener(() => zoomUpdates++);
+      await smooth.setZoom(2);
+      await smooth.setZoom(3);
+      expect(structural, 0);
+      expect(zoomUpdates, 2);
+    });
+
+    test('detected documents do not rebuild the whole screen either', () async {
+      processor.detected = Quad.inset(0.2);
+      await smooth.initialize();
+      var structural = 0;
+      var quadUpdates = 0;
+      smooth.addListener(() => structural++);
+      smooth.quadListenable.addListener(() => quadUpdates++);
+      service.opened.single.emitFrame();
+      await flush();
+      await flush();
+      expect(structural, 0);
+      expect(quadUpdates, 1);
+    });
+  });
+
   group('flash and torch', () {
     test('flash cycles off, auto, always and back to off', () async {
       await controller.initialize();

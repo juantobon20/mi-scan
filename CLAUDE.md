@@ -21,7 +21,7 @@ presentation ──▶ domain ◀── data        core/di = composition root
 - `ScanSession` es la fachada que usan las pantallas del escáner para páginas, detección, recorte y creación del PDF.
 - `Quad` guarda cuatro puntos normalizados a 0..1, ordenados arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda.
 
-La cámara y la galería están detrás de `CameraService`/`CameraSession` y `GalleryService` (domain); las implementaciones con plugins viven en `lib/data/services/` y las pantallas usan `ScannerController`/`GalleryController` creados por `ScreenFactory`. El escáner solo usa cámaras traseras y cambia de lente según el zoom (nunca hay botones de lente ni cámara frontal). Brechas conocidas: `OpenCvImageProcessor`, `PluginCameraSession` y `PhotoManagerGalleryService` no tienen pruebas automatizadas (se validan en un teléfono).
+La cámara y la galería están detrás de `CameraService`/`CameraSession` y `GalleryService` (domain); las implementaciones con plugins viven en `lib/data/services/` y las pantallas usan `ScannerController`/`GalleryController` creados por `ScreenFactory`. El escáner solo usa cámaras traseras y cambia de lente según el zoom (nunca hay botones de lente ni cámara frontal). Brechas conocidas: la detección de bordes de `OpenCvImageProcessor`, `PluginCameraSession` y `PhotoManagerGalleryService` no tienen pruebas automatizadas (se validan en un teléfono); los filtros de OpenCV sí se prueban en el simulador con `integration_test/opencv_filters_test.dart`.
 
 ## Comandos
 

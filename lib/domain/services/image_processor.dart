@@ -12,4 +12,6 @@ abstract interface class ImageProcessor {
   Future<void> crop(String src, String dst, Quad quad, ScanFilter filter);
 
   Future<ImageSize> rotate(String path);
+
+  Future<void> applyFilter(String src, String dst, ScanFilter filter, {int maxSide = 1600});
 }

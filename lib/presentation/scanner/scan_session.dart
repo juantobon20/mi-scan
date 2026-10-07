@@ -25,6 +25,7 @@ class ScanSession extends ChangeNotifier {
   final CreateDocument _createDocument;
   final List<ScanPage> _pages = [];
   final List<String> _shots = [];
+  final Map<String, Future<String>> _previews = {};
 
   List<ScanPage> get pages => List.unmodifiable(_pages);
 
@@ -62,6 +63,27 @@ class ScanSession extends ChangeNotifier {
     final tmp = p.join(dir, 'src_${DateTime.now().microsecondsSinceEpoch}.jpg');
     await _processor.normalize(sourcePath, tmp);
     return tmp;
+  }
+
+  Future<String> previewFilter(String sourcePath, ScanFilter filter) {
+    if (filter == ScanFilter.original) return Future.value(sourcePath);
+    final target = p.join(dir, 'preview_${p.basenameWithoutExtension(sourcePath)}_${filter.name}.jpg');
+    return _previews.putIfAbsent(target, () async {
+      if (!File(target).existsSync()) await _processor.applyFilter(sourcePath, target, filter);
+      return target;
+    }).catchError((Object error) {
+      _previews.remove(target);
+      throw error;
+    });
+  }
+
+  void discardPreviews(String sourcePath) {
+    final prefix = 'preview_${p.basenameWithoutExtension(sourcePath)}_';
+    _previews.removeWhere((target, _) {
+      final matches = p.basename(target).startsWith(prefix);
+      if (matches) silentDelete(target);
+      return matches;
+    });
   }
 
   Future<ScanPage> cropPage(String src, Quad quad, ScanFilter filter) async {

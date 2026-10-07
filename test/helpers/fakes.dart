@@ -81,6 +81,18 @@ class FakeImageProcessor implements ImageProcessor {
     File(src).copySync(dst);
   }
 
+  Completer<void>? previewGate;
+  Object? previewError;
+
+  @override
+  Future<void> applyFilter(String src, String dst, ScanFilter filter, {int maxSide = 1600}) async {
+    calls.add('preview:${filter.name}');
+    await previewGate?.future;
+    final error = previewError;
+    if (error != null) throw error;
+    File(src).copySync(dst);
+  }
+
   @override
   Future<ImageSize> rotate(String path) async {
     calls.add('rotate');

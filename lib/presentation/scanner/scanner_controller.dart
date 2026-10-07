@@ -14,7 +14,13 @@ const double ultraWideFactor = 0.5;
 const double telephotoFactor = 2.0;
 
 class ScannerController extends ChangeNotifier {
-  ScannerController({required this._cameraService, required this._session});
+  ScannerController({
+    required this._cameraService,
+    required this._session,
+    this.zoomIdleDelay = const Duration(milliseconds: 350),
+  });
+
+  final Duration zoomIdleDelay;
 
   final CameraService _cameraService;
   final ScanSession _session;
@@ -31,8 +37,10 @@ class ScannerController extends ChangeNotifier {
   bool _zoomApplyScheduled = false;
   StreamSubscription<GrayFrame>? _frameSubscription;
   CameraAccessException? _problem;
-  Quad? _quad;
-  double _zoom = 1;
+  final _quadValue = ValueNotifier<Quad?>(null);
+  final _zoomValue = ValueNotifier<double>(1);
+  Timer? _zoomIdleTimer;
+  bool _framesPausedForZoom = false;
   FlashSetting _flash = FlashSetting.off;
   bool _torch = false;
   bool _capturing = false;
@@ -46,8 +54,10 @@ class ScannerController extends ChangeNotifier {
   bool get usesVirtualLenses => _virtualLenses;
   CameraSession? get camera => _camera;
   CameraAccessException? get problem => _problem;
-  Quad? get quad => _quad;
-  double get zoom => _zoom;
+  Quad? get quad => _quadValue.value;
+  double get zoom => _zoomValue.value;
+  ValueListenable<Quad?> get quadListenable => _quadValue;
+  ValueListenable<double> get zoomListenable => _zoomValue;
   FlashSetting get flash => _flash;
   bool get torch => _torch;
   bool get capturing => _capturing;
@@ -91,7 +101,7 @@ class ScannerController extends ChangeNotifier {
     _ultraWide = usable.where((c) => c.lens == CameraLens.ultraWide && c != main).firstOrNull;
     _telephoto = usable.where((c) => c.lens == CameraLens.telephoto && c != main).firstOrNull;
     _virtualLenses = false;
-    _zoom = 1;
+    _zoomValue.value = 1;
     await _open(main, zoom: 1);
     if (_camera == null) return;
     _mainRange = _camera!.zoomRange;
@@ -103,7 +113,7 @@ class ScannerController extends ChangeNotifier {
     await _release();
     _selected = info;
     _problem = null;
-    _quad = null;
+    _quadValue.value = null;
     _notify();
     try {
       final opened = await _cameraService.open(info);
@@ -146,6 +156,8 @@ class ScannerController extends ChangeNotifier {
   }
 
   Future<void> _release() async {
+    _zoomIdleTimer?.cancel();
+    _framesPausedForZoom = false;
     unawaited(_frameSubscription?.cancel());
     _frameSubscription = null;
     final camera = _camera;
@@ -172,12 +184,10 @@ class ScannerController extends ChangeNotifier {
       if (_disposed) return;
       if (detected != null) {
         _misses = 0;
-        final previous = _quad;
-        _quad = previous == null ? detected : previous.smoothedTo(detected);
-        _notify();
-      } else if (++_misses > 3 && _quad != null) {
-        _quad = null;
-        _notify();
+        final previous = _quadValue.value;
+        _quadValue.value = previous == null ? detected : previous.smoothedTo(detected);
+      } else if (++_misses > 3 && _quadValue.value != null) {
+        _quadValue.value = null;
       }
     }).catchError((Object _) {
       _detecting = false;
@@ -187,9 +197,9 @@ class ScannerController extends ChangeNotifier {
   Future<void> setZoom(double zoom) async {
     if (_main == null) return;
     final clamped = zoomRange.clamp(zoom);
-    if (clamped == _zoom) return;
-    _zoom = clamped;
-    _notify();
+    if (clamped == _zoomValue.value) return;
+    _zoomValue.value = clamped;
+    _pauseFramesWhileZooming();
     if (_zoomApplyScheduled) return;
     _zoomApplyScheduled = true;
     await _serial(() async {
@@ -201,14 +211,14 @@ class ScannerController extends ChangeNotifier {
   Future<void> _applyZoom() async {
     if (_camera == null) return;
     while (true) {
-      final wanted = _lensFor(_zoom);
+      final wanted = _lensFor(_zoomValue.value);
       if (wanted == _selected) break;
-      await _open(wanted, zoom: _zoom);
+      await _open(wanted, zoom: _zoomValue.value);
       if (_camera == null) return;
     }
     final camera = _camera;
     if (camera == null) return;
-    await camera.setZoom(camera.zoomRange.clamp(_zoom / _factorOf(_selected!)));
+    await camera.setZoom(camera.zoomRange.clamp(_zoomValue.value / _factorOf(_selected!)));
   }
 
   Future<void> cycleFlash() async {
@@ -249,7 +259,8 @@ class ScannerController extends ChangeNotifier {
 
   Future<void> finishCapture() async {
     _capturing = false;
-    _quad = null;
+    _framesPausedForZoom = false;
+    _quadValue.value = null;
     _notify();
     try {
       await _camera?.startFrames();
@@ -276,8 +287,27 @@ class ScannerController extends ChangeNotifier {
   Future<void> resume() => _serial(() async {
         final info = _selected;
         if (info == null) return _initialize();
-        if (_camera == null) await _open(info, zoom: _zoom);
+        if (_camera == null) await _open(info, zoom: _zoomValue.value);
       });
+
+  void _pauseFramesWhileZooming() {
+    final camera = _camera;
+    if (camera == null || _capturing) return;
+    if (!_framesPausedForZoom) {
+      _framesPausedForZoom = true;
+      unawaited(camera.stopFrames().catchError((Object _) {}));
+    }
+    _zoomIdleTimer?.cancel();
+    _zoomIdleTimer = Timer(zoomIdleDelay, _resumeFramesAfterZoom);
+  }
+
+  void _resumeFramesAfterZoom() {
+    if (!_framesPausedForZoom) return;
+    _framesPausedForZoom = false;
+    final camera = _camera;
+    if (camera == null || _capturing || _disposed) return;
+    unawaited(camera.startFrames().catchError((Object _) {}));
+  }
 
   void _notify() {
     if (!_disposed) notifyListeners();
@@ -286,7 +316,10 @@ class ScannerController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _zoomIdleTimer?.cancel();
     unawaited(_release());
+    _quadValue.dispose();
+    _zoomValue.dispose();
     super.dispose();
   }
 }

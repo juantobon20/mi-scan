@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -83,6 +84,70 @@ void main() {
     expect(page.width, 800);
     expect(page.height, 1000);
     expect(session.pages, isEmpty);
+  });
+
+  group('previewFilter', () {
+    test('returns the original image for the Original filter without processing', () async {
+      final src = makePage('src');
+      expect(await session.previewFilter(src.path, ScanFilter.original), src.path);
+      expect(processor.calls, isEmpty);
+    });
+
+    test('creates a filtered copy inside the session directory', () async {
+      final src = makePage('src');
+      final preview = await session.previewFilter(src.path, ScanFilter.grayscale);
+      expect(preview, isNot(src.path));
+      expect(preview.startsWith(dir.path), isTrue);
+      expect(File(preview).existsSync(), isTrue);
+      expect(processor.calls, ['preview:grayscale']);
+    });
+
+    test('computes each filter only once and reuses the cached file', () async {
+      final src = makePage('src');
+      final first = await session.previewFilter(src.path, ScanFilter.enhanced);
+      final second = await session.previewFilter(src.path, ScanFilter.enhanced);
+      expect(second, first);
+      expect(processor.calls, ['preview:enhanced']);
+    });
+
+    test('concurrent requests for the same filter share one computation', () async {
+      final src = makePage('src');
+      processor.previewGate = Completer<void>();
+      final a = session.previewFilter(src.path, ScanFilter.blackAndWhite);
+      final b = session.previewFilter(src.path, ScanFilter.blackAndWhite);
+      processor.previewGate!.complete();
+      expect(await a, await b);
+      expect(processor.calls, ['preview:blackAndWhite']);
+    });
+
+    test('keeps a separate preview per filter and per source image', () async {
+      final a = makePage('a'), b = makePage('b');
+      final results = {
+        await session.previewFilter(a.path, ScanFilter.grayscale),
+        await session.previewFilter(a.path, ScanFilter.enhanced),
+        await session.previewFilter(b.path, ScanFilter.grayscale),
+      };
+      expect(results, hasLength(3));
+    });
+
+    test('a failed computation is not cached and can be retried', () async {
+      final src = makePage('src');
+      processor.previewError = StateError('boom');
+      await expectLater(session.previewFilter(src.path, ScanFilter.grayscale), throwsStateError);
+      processor.previewError = null;
+      expect(File(await session.previewFilter(src.path, ScanFilter.grayscale)).existsSync(), isTrue);
+    });
+
+    test('discardPreviews deletes the previews of that image only', () async {
+      final a = makePage('a'), b = makePage('b');
+      final previewA = await session.previewFilter(a.path, ScanFilter.grayscale);
+      final previewB = await session.previewFilter(b.path, ScanFilter.grayscale);
+      session.discardPreviews(a.path);
+      expect(File(previewA).existsSync(), isFalse);
+      expect(File(previewB).existsSync(), isTrue);
+      await session.previewFilter(a.path, ScanFilter.grayscale);
+      expect(processor.calls.where((c) => c == 'preview:grayscale'), hasLength(3));
+    });
   });
 
   group('batch shots', () {

@@ -116,6 +116,8 @@ Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 | `ImageProcessor.normalize` | Reduce a un máximo de 3000 px y escribe un JPEG; `src` y `dst` pueden ser el mismo archivo. |
 | `ImageProcessor.crop` | Corrige la perspectiva con el quad, aplica el filtro y escribe el JPEG. |
 | `ImageProcessor.rotate` | Rota 90° en sentido horario sobre el mismo archivo y devuelve el nuevo tamaño. |
+| `ImageProcessor.applyFilter` | Aplica un filtro a una copia reducida (`maxSide`, por defecto 1600 px) y la guarda como JPEG. Usa la misma función de OpenCV que `crop`, así que la vista previa es el resultado real del filtro; en B/N el tamaño del bloque del umbral adaptativo se escala con la reducción para que se vea igual que en el archivo final. |
+| `ScanSession.previewFilter` | Devuelve la imagen filtrada para la vista previa (la original si el filtro es Original). Guarda cada combinación imagen/filtro en el directorio de la sesión, comparte las peticiones simultáneas y no cachea los errores. `discardPreviews` las borra al cerrar el editor. |
 | `DocumentRepository.list` | Más reciente primero; las miniaturas no se listan como documentos. |
 | `ScanSession.move` | Misma semántica que `ReorderableListView.onReorderItem` (índice después de quitar el elemento). |
 | `ScanSession.cropPage` | Devuelve la página recortada pero **no** la agrega; el escáner la agrega con `add`. |
@@ -161,9 +163,12 @@ flutter test --coverage
 | Unitarias de presentación | `ScanSession`, `HomeController`, `downsampleToGray` (YUV/BGRA, `bytesPerRow`), formateadores, grafo de DI |
 | Widgets | `HomeScreen` (vacío, carga, error/reintento, renombrar, eliminar, compartir), `ReviewScreen`, `CropScreen` (filtros, guardar/agregar/cancelar, lote, arrastre), `QuadPainter` |
 | Localización | Claves y placeholders idénticos en los ARB, plurales, resolución de idioma (`es`, `es-MX`, idiomas no soportados → inglés) y pantallas en español |
+| OpenCV real | `integration_test/opencv_filters_test.dart` ejecuta el procesador real en un simulador o dispositivo: Grises deja canales iguales, B/N deja solo píxeles blancos y negros, Mejorado aclara la imagen, la vista previa respeta `maxSide` sin ampliar, y el recorte aplica el mismo filtro que la vista previa |
 | Integración | Flujo completo con el árbol real de widgets y el contenedor de DI en un simulador iOS: listar → renombrar → compartir → eliminar; abrir y cerrar el escáner |
 
 Los dobles de prueba están en `test/helpers/fakes.dart` (repositorio en memoria, procesador de imágenes, servicio de compartir, etc.).
+
+**Zoom fluido.** El gesto y el deslizador solo reconstruyen la etiqueta y el propio deslizador (no toda la pantalla), el documento detectado se repinta aparte, el deslizador usa escala logarítmica (cada tramo multiplica el zoom por el mismo factor, como la cámara original) y la detección se pausa mientras el zoom cambia, reanudándose 350 ms después de soltar. La detección no es necesaria mientras haces zoom y así la cámara deja de enviar ~30 fotogramas por segundo a Dart durante el gesto.
 
 **Cobertura:** la lógica de dominio, repositorio, controladores (incluidos `ScannerController` y `GalleryController`), sesión y pantallas está cubierta con dobles de cámara y galería (`FakeCameraService`, `FakeGalleryService`). No se cubren `OpenCvImageProcessor` ni las clases que hablan con los plugins reales (`PluginCameraSession`, `PhotoManagerGalleryService`): dependen de OpenCV nativo, de la cámara y de la galería del dispositivo; se validan a mano en un teléfono.
 
@@ -434,7 +439,7 @@ Cumplimiento:
 
 - El zoom máximo es el que Android entrega a las apps de terceros: en un Galaxy S23 Ultra es 10x (`zoomRatioRange` 0,6 a 10), mientras que la app de cámara de Samsung llega a 100x con APIs propias del fabricante que el plugin `camera` no puede usar.
 - Los factores 0,5x y 2x del cambio de lente en teléfonos con lentes separados son estimaciones: el plugin `camera` no expone las distancias focales, por lo que el encuadre puede dar un pequeño salto al cambiar. Solo se validó en un Galaxy S23 Ultra, que expone la multicámara lógica.
-- `OpenCvImageProcessor` no tiene pruebas automatizadas; se podrían agregar pruebas de integración en dispositivo con imágenes de muestra.
+- La detección de bordes de `OpenCvImageProcessor` (`detectInFile`, `detectInFrame`) no tiene pruebas automatizadas; los filtros, el recorte y la reducción sí se verifican con OpenCV real en el simulador (`integration_test/opencv_filters_test.dart`).
 - Solo hay dos idiomas (inglés y español) y no existe un selector de idioma dentro de la app.
 - No hay persistencia de metadatos más allá del sistema de archivos (sin búsqueda ni etiquetas).
 - No están configurados la firma de release, la distribución en iOS ni el versionado automático.

@@ -7,9 +7,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Añadido
+- Las notas de cada versión en Firebase App Distribution se generan automáticamente desde `CHANGELOG.md` con `scripts/release_notes.sh` (tag `vX.Y.Z` o versión de `pubspec.yaml`); en ejecuciones manuales se pueden sobrescribir.
+- El README documenta la convención de títulos de PR y commits, con los tipos, las reglas, ejemplos válidos e inválidos y el patrón exacto.
 - El README explica cómo manejar los arreglos durante la estabilización de una release: se corrigen solo en la rama de release, sin traer `develop`, y se propagan con el back-merge `main → develop`.
 
 ### Cambiado
+- `PR validation` cancela las ejecuciones anteriores del mismo PR mediante un grupo de `concurrency`.
 - El README ya no incluye los pasos para crear el keystore, probar la firma en local ni subir los secretos, porque están configurados; se conserva la descripción del flujo y los nombres de los secretos.
 - El README describe que el workflow verifica la firma con `apksigner`.
 - El README ya no documenta la protección de ramas ni los scripts de instalación de hooks, calidad y reglas de GitHub; las ramas ya están protegidas y los hooks se activan con `git config core.hooksPath .githooks`.

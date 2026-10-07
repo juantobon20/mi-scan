@@ -50,5 +50,11 @@
   "gallerySelected": "{count} seleccionada(s)",
   "galleryEmpty": "No hay imágenes",
   "galleryNoPermission": "Sin permiso para acceder a las fotos.",
-  "galleryAdd": "Agregar ({count})"
+  "galleryAdd": "Agregar ({count})",
+  "flashTooltip": "Flash",
+  "torchTooltip": "Linterna",
+  "modeSingle": "Individual",
+  "modeBatch": "Lote",
+  "batchDone": "Listo",
+  "zoomTooltip": "Zoom"
 }

@@ -130,5 +130,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "flashTooltip": "Flash",
+  "torchTooltip": "Flashlight",
+  "modeSingle": "Single",
+  "modeBatch": "Batch",
+  "batchDone": "Done",
+  "zoomTooltip": "Zoom"
 }

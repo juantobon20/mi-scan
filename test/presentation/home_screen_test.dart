@@ -7,6 +7,7 @@ import 'package:mi_scan/domain/usecases/document_usecases.dart';
 import 'package:mi_scan/presentation/home/home_controller.dart';
 import 'package:mi_scan/presentation/home/home_screen.dart';
 import 'package:mi_scan/presentation/scanner/scan_session.dart';
+import 'package:mi_scan/presentation/scanner/scanner_screen.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump_helpers.dart';
@@ -31,7 +32,7 @@ void main() {
       deleteDocument: DeleteDocument(repo),
       shareService: share,
     );
-    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession));
+    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()));
     await tester.pumpAndSettle();
   }
 
@@ -52,7 +53,7 @@ void main() {
       deleteDocument: DeleteDocument(repo),
       shareService: FakeShareService(),
     );
-    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession));
+    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()));
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     await tester.pumpAndSettle();
     expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -142,7 +143,7 @@ void main() {
       deleteDocument: DeleteDocument(failing),
       shareService: FakeShareService(),
     );
-    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession));
+    await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()));
     await tester.pumpAndSettle();
     expect(find.text('Could not load documents'), findsOneWidget);
 
@@ -162,7 +163,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(sessionsStarted, 1);
-    expect(find.text('Could not open the camera'), findsOneWidget);
+    expect(find.byType(ScannerScreen), findsOneWidget);
   });
 }
 

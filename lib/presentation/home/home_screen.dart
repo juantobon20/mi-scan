@@ -6,15 +6,17 @@ import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/scanned_document.dart';
+import '../navigation/screen_factory.dart';
 import '../scanner/scan_session.dart';
 import '../scanner/scanner_screen.dart';
 import '../widgets/name_dialog.dart';
 import 'home_controller.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.controller, required this.startSession});
+  const HomeScreen({super.key, required this.controller, required this.startSession, required this.factory});
   final HomeController controller;
   final ScanSessionFactory startSession;
+  final ScreenFactory factory;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -34,7 +36,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     final doc = await Navigator.push<ScannedDocument>(
       context,
-      MaterialPageRoute(builder: (_) => ScannerScreen(session: session)),
+      MaterialPageRoute(
+        builder: (_) => ScannerScreen(
+          session: session,
+          controller: widget.factory.scannerController(session),
+          factory: widget.factory,
+        ),
+      ),
     );
     session.disposeFiles();
     await ctrl.load();

@@ -10,18 +10,22 @@ import 'package:mi_scan/domain/services/image_processor.dart';
 import 'package:mi_scan/domain/services/share_service.dart';
 import 'package:mi_scan/domain/usecases/document_usecases.dart';
 import 'package:mi_scan/presentation/home/home_controller.dart';
+import 'package:mi_scan/presentation/navigation/screen_factory.dart';
 import 'package:mi_scan/presentation/scanner/scan_session.dart';
 
 import '../test/helpers/fakes.dart';
+import '../test/helpers/pump_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late InMemoryDocumentRepository repo;
   late FakeShareService share;
+  late File photo;
 
   setUp(() async {
     await sl.reset();
+    photo = File('${Directory.systemTemp.createTempSync('it_photo_').path}/photo.png')..writeAsBytesSync(kTinyPng);
     repo = InMemoryDocumentRepository([sampleDoc('Contract')]);
     share = FakeShareService();
     final processor = FakeImageProcessor();
@@ -43,7 +47,8 @@ void main() {
             dir: Directory.systemTemp.createTempSync('it_').path,
             imageProcessor: processor,
             createDocument: sl(),
-          ));
+          ))
+      ..registerSingleton<ScreenFactory>(fakeScreenFactory(camera: FakeCameraService(photoPath: photo.path)));
   });
 
   tearDown(sl.reset);
@@ -91,5 +96,38 @@ void main() {
     await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
     expect(find.text('Recent'), findsOneWidget);
+  });
+
+  testWidgets('scan several photos in batch mode, adjust each one and save them as a PDF', (tester) async {
+    tester.platformDispatcher.localesTestValue = [const Locale('en')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+    await tester.pumpWidget(const MiScanApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('scan_fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('mode_batch')));
+    await tester.pump();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byKey(const Key('shutter')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('2'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('batch_done')));
+    await tester.pumpAndSettle();
+    expect(find.text('Adjust edges (1/2)'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Adjust edges (2/2)'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Batch scan');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repo.docs.first.name, 'Batch scan');
+    expect(share.shared, ['/mem/Batch scan.pdf']);
+    expect(find.text('Batch scan'), findsOneWidget);
   });
 }

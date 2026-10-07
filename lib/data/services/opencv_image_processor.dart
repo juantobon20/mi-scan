@@ -32,6 +32,10 @@ class OpenCvImageProcessor implements ImageProcessor {
       compute(_crop, {'src': src, 'dst': dst, 'quad': quad.toFlat(), 'filter': filter.index});
 
   @override
+  Future<void> applyFilter(String src, String dst, ScanFilter filter, {int maxSide = 1600}) =>
+      compute(_preview, {'src': src, 'dst': dst, 'filter': filter.index, 'maxSide': maxSide});
+
+  @override
   Future<ImageSize> rotate(String path) async {
     final s = await compute(_rotate, path);
     return ImageSize(s[0], s[1]);
@@ -124,6 +128,52 @@ void _write(String path, cv.Mat img) {
   cv.imwrite(path, img, params: cv.VecI32.fromList([cv.IMWRITE_JPEG_QUALITY, 88]));
 }
 
+cv.Mat _filtered(cv.Mat input, ScanFilter filter, {double scale = 1}) {
+  switch (filter) {
+    case ScanFilter.original:
+      return input;
+    case ScanFilter.enhanced:
+      final out = cv.convertScaleAbs(input, alpha: 1.25, beta: 12);
+      input.dispose();
+      return out;
+    case ScanFilter.grayscale:
+      final out = cv.cvtColor(input, cv.COLOR_BGR2GRAY);
+      input.dispose();
+      return out;
+    case ScanFilter.blackAndWhite:
+      final gray = cv.cvtColor(input, cv.COLOR_BGR2GRAY);
+      input.dispose();
+      var block = (31 * scale).round();
+      if (block.isEven) block++;
+      final out = cv.adaptiveThreshold(
+        gray,
+        255,
+        cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv.THRESH_BINARY,
+        math.max(block, 3),
+        15,
+      );
+      gray.dispose();
+      return out;
+  }
+}
+
+void _preview(Map<String, Object> a) {
+  var img = cv.imread(a['src'] as String);
+  final maxSide = a['maxSide'] as int;
+  final longest = math.max(img.cols, img.rows);
+  var scale = 1.0;
+  if (longest > maxSide) {
+    scale = maxSide / longest;
+    final resized = cv.resize(img, ((img.cols * scale).round(), (img.rows * scale).round()), interpolation: cv.INTER_AREA);
+    img.dispose();
+    img = resized;
+  }
+  final out = _filtered(img, ScanFilter.values[a['filter'] as int], scale: scale);
+  _write(a['dst'] as String, out);
+  out.dispose();
+}
+
 void _crop(Map<String, Object> a) {
   final img = cv.imread(a['src'] as String);
   final q = a['quad'] as List<double>;
@@ -145,24 +195,7 @@ void _crop(Map<String, Object> a) {
   var out = cv.warpPerspective(img, m, (w, h), flags: cv.INTER_CUBIC);
   img.dispose();
 
-  cv.Mat swap(cv.Mat next) {
-    out.dispose();
-    return out = next;
-  }
-
-  switch (ScanFilter.values[a['filter'] as int]) {
-    case ScanFilter.original:
-      break;
-    case ScanFilter.enhanced:
-      swap(cv.convertScaleAbs(out, alpha: 1.25, beta: 12));
-    case ScanFilter.grayscale:
-      swap(cv.cvtColor(out, cv.COLOR_BGR2GRAY));
-    case ScanFilter.blackAndWhite:
-      final g = cv.cvtColor(out, cv.COLOR_BGR2GRAY);
-      final bw = cv.adaptiveThreshold(g, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 31, 15);
-      g.dispose();
-      swap(bw);
-  }
+  out = _filtered(out, ScanFilter.values[a['filter'] as int]);
   _write(a['dst'] as String, out);
   out.dispose();
   m.dispose();

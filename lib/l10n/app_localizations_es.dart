@@ -196,4 +196,22 @@ class AppLocalizationsEs extends AppLocalizations {
   String galleryAdd(int count) {
     return 'Agregar ($count)';
   }
+
+  @override
+  String get flashTooltip => 'Flash';
+
+  @override
+  String get torchTooltip => 'Linterna';
+
+  @override
+  String get modeSingle => 'Individual';
+
+  @override
+  String get modeBatch => 'Lote';
+
+  @override
+  String get batchDone => 'Listo';
+
+  @override
+  String get zoomTooltip => 'Zoom';
 }

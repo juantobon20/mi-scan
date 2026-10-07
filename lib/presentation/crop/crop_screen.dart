@@ -43,11 +43,45 @@ class _CropScreenState extends State<CropScreen> {
   ScanFilter _filter = ScanFilter.original;
   bool _busy = false;
   bool _detected = false;
+  String? _previewPath;
+  bool _previewLoading = false;
+  int _previewRequest = 0;
 
   @override
   void initState() {
     super.initState();
     _init();
+  }
+
+  @override
+  void dispose() {
+    widget.session.discardPreviews(widget.imagePath);
+    super.dispose();
+  }
+
+  Future<void> _selectFilter(ScanFilter filter) async {
+    final request = ++_previewRequest;
+    setState(() {
+      _filter = filter;
+      _previewLoading = filter != ScanFilter.original;
+      if (filter == ScanFilter.original) _previewPath = null;
+    });
+    if (filter == ScanFilter.original) return;
+    try {
+      final path = await widget.session.previewFilter(widget.imagePath, filter);
+      if (!mounted || request != _previewRequest) return;
+      setState(() {
+        _previewPath = path;
+        _previewLoading = false;
+      });
+    } catch (e) {
+      if (!mounted || request != _previewRequest) return;
+      setState(() {
+        _previewPath = null;
+        _previewLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.cropError('$e'))));
+    }
   }
 
   Future<void> _init() async {
@@ -133,11 +167,29 @@ class _CropScreenState extends State<CropScreen> {
                       return Center(
                         child: SizedBox.fromSize(
                           size: box,
-                          child: _Editor(
-                            path: widget.imagePath,
-                            quad: _quad,
-                            box: box,
-                            onChanged: (q) => setState(() => _quad = q),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned.fill(
+                                child: _Editor(
+                                  path: _previewPath ?? widget.imagePath,
+                                  quad: _quad,
+                                  box: box,
+                                  onChanged: (q) => setState(() => _quad = q),
+                                ),
+                              ),
+                              if (_previewLoading)
+                                const Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: SizedBox(
+                                    key: Key('preview_loading'),
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: kScanColor),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       );
@@ -162,7 +214,7 @@ class _CropScreenState extends State<CropScreen> {
                             label: Text(f.label(context.l10n)),
                             selected: _filter == f,
                             selectedColor: kScanColor,
-                            onSelected: (_) => setState(() => _filter = f),
+                            onSelected: (_) => _selectFilter(f),
                           ),
                         ),
                     ],
@@ -179,37 +231,46 @@ class _CropScreenState extends State<CropScreen> {
                           child: Text(widget.total > 1 ? context.l10n.actionSkip : context.l10n.actionCancel,
                               style: const TextStyle(color: Colors.white)),
                         ),
-                        const Spacer(),
-                        if (_busy)
-                          const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: kScanColor))
-                        else if (!isLast)
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(backgroundColor: kScanColor),
-                            onPressed: () => _accept(save: false),
-                            icon: const Icon(Icons.arrow_forward),
-                            label: Text(context.l10n.actionNext),
-                          )
-                        else ...[
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white54),
-                            ),
-                            onPressed: () => _accept(save: false),
-                            icon: const Icon(Icons.add),
-                            label: Text(context.l10n.actionAdd),
+                        Expanded(
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              if (_busy)
+                                const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: kScanColor),
+                                )
+                              else if (!isLast)
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(backgroundColor: kScanColor),
+                                  onPressed: () => _accept(save: false),
+                                  icon: const Icon(Icons.arrow_forward),
+                                  label: Text(context.l10n.actionNext),
+                                )
+                              else ...[
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white54),
+                                  ),
+                                  onPressed: () => _accept(save: false),
+                                  icon: const Icon(Icons.add),
+                                  label: Text(context.l10n.actionAdd),
+                                ),
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(backgroundColor: kScanColor),
+                                  onPressed: () => _accept(save: true),
+                                  icon: const Icon(Icons.picture_as_pdf),
+                                  label: Text(context.l10n.actionSave),
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(backgroundColor: kScanColor),
-                            onPressed: () => _accept(save: true),
-                            icon: const Icon(Icons.picture_as_pdf),
-                            label: Text(context.l10n.actionSave),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
@@ -236,7 +297,13 @@ class _Editor extends StatelessWidget {
       children: [
         Positioned.fill(
           child: RepaintBoundary(
-            child: Image.file(File(path), fit: BoxFit.fill, cacheWidth: 1600, gaplessPlayback: true),
+            child: Image.file(
+              File(path),
+              key: const Key('editor_image'),
+              fit: BoxFit.fill,
+              cacheWidth: 1600,
+              gaplessPlayback: true,
+            ),
           ),
         ),
         Positioned.fill(

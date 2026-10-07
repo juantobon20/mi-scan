@@ -7,7 +7,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ## [Sin publicar]
 
 ### Añadido
+- Vista previa inmediata de los filtros (Original, Mejorado, Grises y B/N) en el editor de recorte, con el mismo procesamiento de OpenCV que se aplica al guardar, caché por filtro e indicador de carga.
+- `integration_test/opencv_filters_test.dart`: pruebas de los filtros, la reducción y el recorte con OpenCV real.
+- Zoom (pellizco y deslizador), flash de tres estados y linterna en el escáner.
+- Cambio automático de lente al hacer zoom: usa la multicámara lógica del teléfono cuando existe y, si los lentes se listan por separado, combina ultra gran angular, principal y teleobjetivo en un único zoom con histéresis.
+- Modo lote: captura continua de fotos y, con "Listo", editor de recorte foto por foto (como en el modo individual) antes de generar el PDF.
+- Prueba de integración del modo lote y `test_driver/integration_test.dart` para ejecutarlas con `flutter drive`.
 - `firebase-distribution.yml` verifica con `scripts/check_release_version.sh` que la versión del tag `vX.Y.Z` coincida con `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[X.Y.Z]`, para no publicar un APK de otra versión por un tag mal ubicado.
+
+### Corregido
+- El zoom con los dedos y con el deslizador iba entrecortado: ahora solo se repinta la etiqueta de zoom y el deslizador, el documento detectado se repinta aparte, la detección se pausa mientras se hace zoom y el deslizador es logarítmico.
+- Los botones del editor de recorte (Omitir, Agregar y Guardar) se desbordaban 23 px en pantallas de 360 dp; ahora se acomodan en varias líneas si hace falta.
+- Al conceder el permiso de cámara por primera vez, la cámara fallaba con "No supported surface combination" porque se abría dos veces a la vez; ahora las operaciones de cámara se serializan y hay pruebas de regresión.
+
+### Cambiado
+- El escáner usa solo cámaras traseras: se quitó la cámara frontal.
+- La cámara y la galería están detrás de interfaces del dominio (`CameraService`, `CameraSession`, `GalleryService`) con implementaciones en `data`; `ScannerScreen` y `GalleryPickerScreen` usan `ScannerController` y `GalleryController`, creados por `ScreenFactory`.
+- `frame_converter.dart` pasó de `presentation` a `data`, porque convierte frames del plugin de cámara.
 
 ## [1.1.0] - 2026-10-06
 

@@ -99,7 +99,7 @@ void main() {
         MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: HomeScreen(controller: _homeController(), startSession: _noSession),
+          home: HomeScreen(controller: _homeController(), startSession: _noSession, factory: fakeScreenFactory()),
         ),
       );
       await tester.pumpAndSettle();
@@ -134,7 +134,7 @@ void main() {
       final es = await _load('es');
       await pumpApp(
         tester,
-        HomeScreen(controller: _homeController(), startSession: _noSession),
+        HomeScreen(controller: _homeController(), startSession: _noSession, factory: fakeScreenFactory()),
         locale: const Locale('es'),
       );
       await tester.pumpAndSettle();

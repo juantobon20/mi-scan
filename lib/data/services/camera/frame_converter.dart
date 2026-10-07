@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../../domain/entities/scan_page.dart';
+import '../../../domain/entities/scan_page.dart';
 
 GrayFrame downsampleToGray({
   required Uint8List data,

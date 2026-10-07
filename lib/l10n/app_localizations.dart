@@ -403,6 +403,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add ({count})'**
   String galleryAdd(int count);
+
+  /// No description provided for @flashTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Flash'**
+  String get flashTooltip;
+
+  /// No description provided for @torchTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Flashlight'**
+  String get torchTooltip;
+
+  /// No description provided for @modeSingle.
+  ///
+  /// In en, this message translates to:
+  /// **'Single'**
+  String get modeSingle;
+
+  /// No description provided for @modeBatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch'**
+  String get modeBatch;
+
+  /// No description provided for @batchDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get batchDone;
+
+  /// No description provided for @zoomTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom'**
+  String get zoomTooltip;
 }
 
 class _AppLocalizationsDelegate

@@ -6,23 +6,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [1.2.0] - 2026-10-07
+
 ### Añadido
-- OCR en el dispositivo con ML Kit (`TextRecognizer`, `MlKitTextRecognizer`, `RecognizeDocumentText`, `GetDocumentText`): al guardar un escaneo se reconoce el texto de sus páginas en segundo plano, se guarda en la base de datos y se muestra «Texto buscable» y «Reconociendo texto...» en la lista.
+- OCR en el dispositivo con ML Kit: al guardar un escaneo se reconoce el texto de sus páginas en segundo plano, sin enviar nada a internet. La lista muestra «Reconociendo texto...» y después «Texto buscable», y «Ver texto» permite leer y copiar el texto reconocido.
 - La búsqueda también encuentra documentos por su texto reconocido (cada palabra en el nombre o en el contenido, sin distinguir mayúsculas ni acentos).
-- Pantalla «Ver texto» para leer y copiar el texto reconocido.
+- Carpetas: crear, renombrar y eliminar (los documentos se conservan sin carpeta), mover documentos con «Mover a carpeta» y guardar los escaneos nuevos en la carpeta abierta.
+- Búsqueda de documentos por nombre, sin distinguir mayúsculas ni acentos, con varias palabras y combinable con la carpeta.
+- Cada documento muestra su número de páginas.
+- Zoom (pellizco y deslizador), flash de tres estados y linterna en el escáner.
+- Cambio automático de lente al hacer zoom, como la cámara original (ultra gran angular, principal y teleobjetivo), sin botones y solo con las cámaras traseras.
+- Modo lote: captura continua de fotos y, con "Listo", editor de recorte foto por foto (como en el modo individual) antes de generar el PDF.
+- Vista previa inmediata de los filtros (Original, Mejorado, Grises y B/N) en el editor de recorte, igual que el resultado guardado.
 - Migración de la base de datos a la versión 2 (`content_text` y `search_content`), con una lista de pasos de migración y pruebas de actualización desde la versión 1 que conservan las filas.
 - `integration_test/ocr_test.dart` (ML Kit y base reales) y pruebas de migración y de búsqueda por contenido en `integration_test/storage_test.dart`.
-- Carpetas: crear, renombrar y eliminar (los documentos se conservan sin carpeta), mover documentos con "Mover a carpeta" y guardar los escaneos nuevos en la carpeta abierta.
-- Búsqueda por nombre sin distinguir mayúsculas ni acentos, con varias palabras y combinada con la carpeta.
 - Almacenamiento de los metadatos en SQLite (`sqflite`): `AppDatabase`, `SqliteDocumentRepository`, `SqliteFolderRepository` y `DocumentFiles`; los PDFs guardados por versiones anteriores se importan solos y las filas sin archivo se eliminan.
-- Cada documento muestra su número de páginas.
 - Los workflows de CI y distribución instalan `libsqlite3-dev` para las pruebas de los repositorios SQLite.
 - Pruebas de los repositorios SQLite con una base real, de los casos de uso y del controlador de inicio, y `integration_test/storage_test.dart` con el plugin nativo de SQLite.
-- Vista previa inmediata de los filtros (Original, Mejorado, Grises y B/N) en el editor de recorte, con el mismo procesamiento de OpenCV que se aplica al guardar, caché por filtro e indicador de carga.
 - `integration_test/opencv_filters_test.dart`: pruebas de los filtros, la reducción y el recorte con OpenCV real.
-- Zoom (pellizco y deslizador), flash de tres estados y linterna en el escáner.
-- Cambio automático de lente al hacer zoom: usa la multicámara lógica del teléfono cuando existe y, si los lentes se listan por separado, combina ultra gran angular, principal y teleobjetivo en un único zoom con histéresis.
-- Modo lote: captura continua de fotos y, con "Listo", editor de recorte foto por foto (como en el modo individual) antes de generar el PDF.
 - Prueba de integración del modo lote y `test_driver/integration_test.dart` para ejecutarlas con `flutter drive`.
 - `firebase-distribution.yml` verifica con `scripts/check_release_version.sh` que la versión del tag `vX.Y.Z` coincida con `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[X.Y.Z]`, para no publicar un APK de otra versión por un tag mal ubicado.
 

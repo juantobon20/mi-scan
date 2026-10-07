@@ -26,4 +26,12 @@ if [ -z "${notes//[[:space:]]/}" ]; then
   notes="Build ${version}"
 fi
 
-printf '%s\n' "$notes" | cut -c1-500 | head -c "$max_chars"
+printf '%s\n' "$notes" | cut -c1-500 | awk -v max="$max_chars" '
+  {
+    size = length($0) + 1
+    if (total + size > max) { truncated = 1; exit }
+    print
+    total += size
+  }
+  END { if (truncated) print "..." }'
+

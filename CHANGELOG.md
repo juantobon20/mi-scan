@@ -13,6 +13,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Prueba de integración del modo lote y `test_driver/integration_test.dart` para ejecutarlas con `flutter drive`.
 - `firebase-distribution.yml` verifica con `scripts/check_release_version.sh` que la versión del tag `vX.Y.Z` coincida con `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[X.Y.Z]`, para no publicar un APK de otra versión por un tag mal ubicado.
 
+### Corregido
+- Al conceder el permiso de cámara por primera vez, la cámara fallaba con "No supported surface combination" porque se abría dos veces a la vez; ahora las operaciones de cámara se serializan y hay pruebas de regresión.
+
 ### Cambiado
 - El escáner usa solo cámaras traseras: se quitó la cámara frontal.
 - La cámara y la galería están detrás de interfaces del dominio (`CameraService`, `CameraSession`, `GalleryService`) con implementaciones en `data`; `ScannerScreen` y `GalleryPickerScreen` usan `ScannerController` y `GalleryController`, creados por `ScreenFactory`.

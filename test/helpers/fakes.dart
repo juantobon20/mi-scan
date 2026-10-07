@@ -132,6 +132,7 @@ class FakeCameraSession implements CameraSession {
   final ZoomRange zoomRange;
 
   final String photoPath;
+  void Function()? onDispose;
   final frameController = StreamController<GrayFrame>.broadcast();
   final calls = <String>[];
   double zoom = 1;
@@ -191,6 +192,7 @@ class FakeCameraSession implements CameraSession {
 
   @override
   Future<void> dispose() async {
+    if (!disposed) onDispose?.call();
     disposed = true;
     calls.add('dispose');
     unawaited(frameController.close());
@@ -214,6 +216,9 @@ class FakeCameraService implements CameraService {
   Object? listError;
   Object? openError;
   final opened = <FakeCameraSession>[];
+  Completer<void>? openGate;
+  int active = 0;
+  int maxActive = 0;
 
   @override
   Future<List<CameraInfo>> listCameras() async {
@@ -224,13 +229,20 @@ class FakeCameraService implements CameraService {
 
   @override
   Future<CameraSession> open(CameraInfo camera) async {
+    active++;
+    if (active > maxActive) maxActive = active;
+    await openGate?.future;
     final error = openError;
-    if (error != null) throw error;
+    if (error != null) {
+      active--;
+      throw error;
+    }
     final session = FakeCameraSession(
       camera,
       zoomRange: zoomRanges[camera.id] ?? const ZoomRange(1, 8),
       photoPath: photoPath,
     );
+    session.onDispose = () => active--;
     opened.add(session);
     return session;
   }

@@ -126,6 +126,7 @@ Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 | `CameraSession` | Una cámara abierta: `frames` (cuadros en gris para detectar el documento, ~5 por segundo), `setZoom` (se ajusta a `zoomRange`), `setFlash`, `setTorch`, `takePicture` y `dispose`. La linterna tiene prioridad sobre el flash. |
 | `GalleryService` | `requestAccess`, `loadPage` (paginado), `thumbnail`, `exportJpeg` (siempre JPEG, también convierte HEIC) y `openSettings`. |
 | `ScannerController` | Estado del escáner: zoom, flash, linterna, documento detectado (suavizado), modo y captura. Elige la cámara trasera principal y gestiona el cambio de lente según el zoom (ver abajo). |
+| Operaciones de cámara | Abrir, cerrar, reanudar y cambiar de lente se ejecutan **una a una** en una cola. Al pedir el permiso de cámara, Android pausa y reanuda la pantalla mientras la primera apertura sigue esperando; sin la cola se abría la cámara 0 dos veces y CameraX fallaba con "No supported surface combination". |
 | Zoom y lentes | Si la cámara principal ya expone un rango que baja de 1x (multicámara lógica, por ejemplo 0,6x a 10x en un Galaxy S23), el teléfono cambia de lente solo y la app usa ese rango. Si los lentes se listan por separado, la app los combina en un único zoom: por debajo de 1x usa el ultra gran angular (factor 0,5x), de 1x a 2x el principal con zoom digital y desde 2x el teleobjetivo (factor 2x). Los cambios tienen histéresis (0,95x/1x y 1,9x/2x) para no alternar el lente al pellizcar; cada cambio reabre la cámara, conservando flash y linterna. |
 | `ScanMode` | `single` abre el editor de recorte tras cada foto; `batch` recorta sola con `ScanSession.autoCropPage` (filtro Original, documento detectado o la imagen completa) y no interrumpe la captura. |
 | `ScreenFactory` | Crea los controladores de escáner y galería y el constructor de la vista previa; se registra en el contenedor de DI y evita que las pantallas lo consulten. |
@@ -431,6 +432,7 @@ Cumplimiento:
 
 ## Limitaciones conocidas y próximos pasos
 
+- El zoom máximo es el que Android entrega a las apps de terceros: en un Galaxy S23 Ultra es 10x (`zoomRatioRange` 0,6 a 10), mientras que la app de cámara de Samsung llega a 100x con APIs propias del fabricante que el plugin `camera` no puede usar.
 - Los factores 0,5x y 2x del cambio de lente en teléfonos con lentes separados son estimaciones: el plugin `camera` no expone las distancias focales, por lo que el encuadre puede dar un pequeño salto al cambiar. Solo se validó en un Galaxy S23 Ultra, que expone la multicámara lógica.
 - El modo lote usa siempre el filtro Original; no hay selector de filtro en la captura continua.
 - `OpenCvImageProcessor` no tiene pruebas automatizadas; se podrían agregar pruebas de integración en dispositivo con imágenes de muestra.

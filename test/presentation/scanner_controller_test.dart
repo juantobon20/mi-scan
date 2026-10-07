@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -424,6 +425,38 @@ void main() {
       expect(service.opened.single.streaming, isFalse);
       await controller.resumeFrames();
       expect(service.opened.single.streaming, isTrue);
+    });
+
+    test('lifecycle events during the first open never open the camera twice', () async {
+      service.openGate = Completer<void>();
+      final initializing = controller.initialize();
+      final suspending = controller.suspend();
+      final resuming = controller.resume();
+      await flush();
+      service.openGate!.complete();
+      await Future.wait([initializing, suspending, resuming]);
+      expect(service.maxActive, 1);
+      expect(service.opened.where((s) => !s.disposed), hasLength(1));
+      expect(controller.isReady, isTrue);
+    });
+
+    test('rapid suspend and resume pairs end with a single open camera', () async {
+      await controller.initialize();
+      for (var i = 0; i < 5; i++) {
+        unawaited(controller.suspend());
+        unawaited(controller.resume());
+      }
+      await controller.resume();
+      expect(service.maxActive, 1);
+      expect(service.opened.where((s) => !s.disposed), hasLength(1));
+    });
+
+    test('zoom changes while suspended are applied when the camera comes back', () async {
+      await controller.initialize();
+      await controller.suspend();
+      await controller.setZoom(3);
+      await controller.resume();
+      expect(controller.zoom, 3);
     });
 
     test('dispose releases the camera', () async {

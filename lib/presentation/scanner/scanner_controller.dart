@@ -27,7 +27,8 @@ class ScannerController extends ChangeNotifier {
   CameraSession? _camera;
   ZoomRange _mainRange = const ZoomRange(1, 1);
   bool _virtualLenses = false;
-  bool _switching = false;
+  Future<void> _queue = Future<void>.value();
+  bool _zoomApplyScheduled = false;
   StreamSubscription<GrayFrame>? _frameSubscription;
   CameraAccessException? _problem;
   Quad? _quad;
@@ -53,11 +54,19 @@ class ScannerController extends ChangeNotifier {
   ScanMode get mode => _mode;
   bool get isReady => _camera != null && _problem == null;
   ZoomRange get zoomRange {
-    if (!_virtualLenses) return _camera?.zoomRange ?? const ZoomRange(1, 1);
+    if (!_virtualLenses) return _camera?.zoomRange ?? _mainRange;
     return ZoomRange(_ultraWide == null ? _mainRange.min : ultraWideFactor, _mainRange.max);
   }
 
-  Future<void> initialize() async {
+  Future<void> _serial(Future<void> Function() task) {
+    final result = _queue.then((_) => task());
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
+  Future<void> initialize() => _serial(_initialize);
+
+  Future<void> _initialize() async {
     try {
       _cameras = await _cameraService.listCameras();
     } on CameraAccessException catch (e) {
@@ -176,26 +185,26 @@ class ScannerController extends ChangeNotifier {
   }
 
   Future<void> setZoom(double zoom) async {
-    if (_main == null || (_camera == null && !_switching)) return;
+    if (_main == null) return;
     final clamped = zoomRange.clamp(zoom);
     if (clamped == _zoom) return;
     _zoom = clamped;
     _notify();
-    if (_switching) return;
-    await _applyZoom();
+    if (_zoomApplyScheduled) return;
+    _zoomApplyScheduled = true;
+    await _serial(() async {
+      _zoomApplyScheduled = false;
+      await _applyZoom();
+    });
   }
 
   Future<void> _applyZoom() async {
-    _switching = true;
-    try {
-      while (true) {
-        final wanted = _lensFor(_zoom);
-        if (wanted == _selected) break;
-        await _open(wanted, zoom: _zoom);
-        if (_camera == null) return;
-      }
-    } finally {
-      _switching = false;
+    if (_camera == null) return;
+    while (true) {
+      final wanted = _lensFor(_zoom);
+      if (wanted == _selected) break;
+      await _open(wanted, zoom: _zoom);
+      if (_camera == null) return;
     }
     final camera = _camera;
     if (camera == null) return;
@@ -259,13 +268,16 @@ class ScannerController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> suspend() => _release().then((_) => _notify());
+  Future<void> suspend() => _serial(() async {
+        await _release();
+        _notify();
+      });
 
-  Future<void> resume() async {
-    final info = _selected;
-    if (info == null) return initialize();
-    if (_camera == null) await _open(info, zoom: _zoom);
-  }
+  Future<void> resume() => _serial(() async {
+        final info = _selected;
+        if (info == null) return _initialize();
+        if (_camera == null) await _open(info, zoom: _zoom);
+      });
 
   void _notify() {
     if (!_disposed) notifyListeners();

@@ -6,6 +6,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Añadido
+- `firebase-distribution.yml` verifica con `scripts/check_release_version.sh` que la versión del tag `vX.Y.Z` coincida con `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[X.Y.Z]`, para no publicar un APK de otra versión por un tag mal ubicado.
+
 ## [1.1.0] - 2026-10-06
 
 ### Añadido

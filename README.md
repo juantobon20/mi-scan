@@ -260,12 +260,14 @@ Los hooks están en `.githooks/` y se activan con `git config core.hooksPath .gi
 | Workflow | Disparador | Qué hace |
 |---|---|---|
 | `pr-validation.yml` | PR a `develop` o `main` | Valida nombre de rama, que el título del PR sea el nombre de la rama, texto solo ASCII y changelog; luego ejecuta analizador y verificación de inglés |
-| `ci.yml` | Push (merge) a `develop`, PRs | Analizador, verificación de inglés, `flutter test --coverage`, sube `lcov.info` |
+| `ci.yml` | Push (merge) a `develop`, PRs | Analizador, verificación de inglés, `flutter test --coverage`, sube `lcov.info`; en los PRs hacia `main` también compila el APK release (job `Release build check`) |
 | `firebase-distribution.yml` | Ejecución manual o tag `v*` | Control de calidad, compilación del APK release y subida a Firebase App Distribution |
 
 Los nombres de rama y los destinos de cada tipo de rama están en [Estrategia de ramas](#estrategia-de-ramas).
 
 El título de cada PR es el nombre de su rama y los mensajes de commit siguen Conventional Commits (ver [convención de títulos](#convención-de-títulos-de-pr-y-commits)).
+
+**Reglas de R8.** El APK release se minifica con R8 y `android/app/proguard-rules.pro` (que Flutter aplica solo) lista las clases opcionales que ML Kit menciona pero que la app no incluye (los reconocedores de chino, japonés, coreano y devanagari). Sin esas reglas R8 falla con `Missing class com.google.mlkit.vision.text...`. Como el APK release solo se compila en el workflow de distribución (unos 14 minutos), el job `Release build check` lo compila en los PRs hacia `main` para que un fallo así se vea antes de crear el tag. Si agregas una dependencia nativa y R8 se queja, compila en local con `flutter build apk --release --target-platform android-arm64` (tarda segundos con la caché) y copia las reglas de `build/app/outputs/mapping/release/missing_rules.txt`.
 
 **Publicar una versión en Firebase App Distribution:** la app de Firebase, el grupo de testers `testers` y los secretos del environment `release` ya están configurados (ver [Firma de release](#firma-de-release-android)). Para publicar, ejecuta el workflow manualmente desde `main` (eligiendo grupos y notas de versión) o sube un tag desde `main`, por ejemplo `v1.0.0`. El job espera tu aprobación del environment `release` antes de usar los secretos.
 

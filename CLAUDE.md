@@ -68,6 +68,7 @@ flutter drive --driver=test_driver/integration_test.dart --target=integration_te
 
 ## Detalles a tener en cuenta
 
+- **R8:** el release se minifica; las clases opcionales de ML Kit se silencian en `android/app/proguard-rules.pro`. Si R8 falla con `Missing class`, copia las reglas de `build/app/outputs/mapping/release/missing_rules.txt`. Compila el release en local (`flutter build apk --release --target-platform android-arm64`) antes de crear un tag; el job `Release build check` de `ci.yml` lo hace en los PRs a `main`.
 - **iOS:** ML Kit exige CocoaPods (`brew install cocoapods`) e iOS 15.5+, y **no trae arm64 para simulador**: en Apple Silicon la app no corre en simuladores de iOS 26. Verifica iOS con `flutter build ios --no-codesign` o en un iPhone real, y ejecuta las pruebas de integración en un emulador Android (`flutter test integration_test -d <emulador>`).
 
 - `opencv_dart` necesita assets nativos; el primer build de iOS/Android es lento. La cámara y la detección en vivo solo funcionan en un dispositivo real.

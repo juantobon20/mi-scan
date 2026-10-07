@@ -6,7 +6,7 @@ Contexto y reglas de trabajo para asistentes de IA en este repositorio. Lee `REA
 
 Mi Scan es un escáner de documentos hecho con Flutter (Dart ^3.12, Flutter 3.44) para Android e iOS: detección de bordes en vivo con OpenCV, recorte con corrección de perspectiva y filtros, exportación a PDF de varias páginas y compartir. Es un proyecto de portafolio, así que la calidad del código, la arquitectura y las pruebas importan tanto como las funcionalidades.
 
-Paquete `mi_scan`, id de Android `com.appinc.mi_scan`. Sin backend ni base de datos: los documentos son `nombre.pdf` más una miniatura `nombre.pdf.jpg` en el directorio de documentos de la app.
+Paquete `mi_scan`, id de Android `com.appinc.mi_scan`. Sin backend: los PDFs (`nombre.pdf` más una miniatura `nombre.pdf.jpg`) están en el directorio de documentos de la app y sus metadatos (carpetas, páginas, fechas) en SQLite (`mi_scan.db`, vía `sqflite`).
 
 ## Arquitectura (Clean Architecture)
 
@@ -15,13 +15,15 @@ presentation ──▶ domain ◀── data        core/di = composition root
 ```
 
 - `lib/domain`: Dart puro (entidades, interfaces de repositorios y servicios, casos de uso). Sin Flutter ni plugins.
-- `lib/data`: implementaciones (`FileDocumentRepository`, `OpenCvImageProcessor`, PDF, compartir, directorios).
+- `lib/data`: implementaciones (`SqliteDocumentRepository`, `SqliteFolderRepository`, `AppDatabase`, `DocumentFiles`, `OpenCvImageProcessor`, PDF, compartir, directorios).
 - `lib/presentation`: pantallas y controladores `ChangeNotifier` (`HomeController`, `ScanSession`). Las pantallas reciben sus dependencias por constructor.
 - `lib/core/di/service_locator.dart`: el único lugar que conoce las clases concretas (`get_it`). No llames a `sl` desde pantallas ni desde el dominio.
 - `ScanSession` es la fachada que usan las pantallas del escáner para páginas, detección, recorte y creación del PDF.
 - `Quad` guarda cuatro puntos normalizados a 0..1, ordenados arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda.
 
 La cámara y la galería están detrás de `CameraService`/`CameraSession` y `GalleryService` (domain); las implementaciones con plugins viven en `lib/data/services/` y las pantallas usan `ScannerController`/`GalleryController` creados por `ScreenFactory`. El escáner solo usa cámaras traseras y cambia de lente según el zoom (nunca hay botones de lente ni cámara frontal). Brechas conocidas: la detección de bordes de `OpenCvImageProcessor`, `PluginCameraSession` y `PhotoManagerGalleryService` no tienen pruebas automatizadas (se validan en un teléfono); los filtros de OpenCV sí se prueban en el simulador con `integration_test/opencv_filters_test.dart`.
+
+- Cambios de esquema: sube `AppDatabase.schemaVersion`, agrega la migración en `onUpgrade` y pruébala con una base creada con el esquema anterior. Los repositorios SQLite se prueban con `sqflite_common_ffi` (`test/helpers/sqlite_helpers.dart`) y con el plugin real en `integration_test/storage_test.dart`.
 
 ## Comandos
 
@@ -38,7 +40,7 @@ flutter drive --driver=test_driver/integration_test.dart --target=integration_te
 
 ## Reglas para todo cambio
 
-1. **Solo inglés** en identificadores, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepciones: `lib/l10n/` (traducciones al español de la interfaz) y todos los archivos `.md` (`README.md`, `CHANGELOG.md`, este archivo y la plantilla de PR) están en español; mantén cada archivo en un solo idioma.
+1. **Solo inglés** en identificadores, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepciones: `lib/l10n/` (traducciones al español de la interfaz) y todos los archivos `.md` (`README.md`, `CHANGELOG.md`, este archivo y la plantilla de PR) están en español; mantén cada archivo en un solo idioma. Si una prueba necesita caracteres con acento (por ejemplo las de la búsqueda sin acentos), escríbelos como escapes Unicode (`\u00e1`) para no romper la regla.
 2. **Sin comentarios en el código.** Documenta el comportamiento y los contratos en `README.md` (ver "Contratos importantes"). Prefiere nombres claros a las explicaciones.
 3. **Actualiza `CHANGELOG.md`** bajo `## [Sin publicar]` en todo cambio de archivos o recurso nuevo, incluido el trabajo hecho por IA. El hook de pre-commit y CI fallan si no lo haces.
 4. **Agrega o actualiza pruebas** junto con el cambio. Pon los dobles de prueba en `test/helpers/fakes.dart`; usa `mocktail` solo para verificar interacciones.

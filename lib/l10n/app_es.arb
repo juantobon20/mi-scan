@@ -56,5 +56,21 @@
   "modeSingle": "Individual",
   "modeBatch": "Lote",
   "batchDone": "Listo",
-  "zoomTooltip": "Zoom"
+  "zoomTooltip": "Zoom",
+  "searchTooltip": "Buscar",
+  "searchClearTooltip": "Borrar búsqueda",
+  "searchHint": "Buscar documentos",
+  "searchNoResults": "Ningún documento coincide con \"{query}\".",
+  "folderAll": "Todos",
+  "folderNew": "Nueva carpeta",
+  "folderNameTitle": "Nombre de la carpeta",
+  "folderEmpty": "Esta carpeta está vacía.\nMueve un documento aquí o escanea uno nuevo.",
+  "folderRename": "Renombrar carpeta",
+  "folderDelete": "Eliminar carpeta",
+  "folderDeleteTitle": "¿Eliminar carpeta?",
+  "folderDeleteMessage": "Se eliminará \"{name}\". Sus documentos se conservan y quedan fuera de la carpeta.",
+  "menuMove": "Mover a carpeta",
+  "moveTitle": "Mover a",
+  "moveNoFolder": "Sin carpeta",
+  "genericError": "Algo salió mal: {error}"
 }

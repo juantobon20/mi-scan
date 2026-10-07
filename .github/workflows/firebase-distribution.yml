@@ -56,6 +56,9 @@ jobs:
 
       - run: flutter pub get
 
+      - name: SQLite for the repository tests
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
       - name: Quality gate
         run: |
           flutter analyze --fatal-infos --fatal-warnings

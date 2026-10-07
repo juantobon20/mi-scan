@@ -220,11 +220,65 @@ Los hooks están en `.githooks/` y se activan con `git config core.hooksPath .gi
 
 Los nombres de rama y los destinos de cada tipo de rama están en [Estrategia de ramas](#estrategia-de-ramas).
 
-**Título del PR:** `<type>(<scope>)?: <description>` (Conventional Commits), por ejemplo `feat(scanner): add flash toggle`.
+Los títulos de PR y los mensajes de commit siguen la [convención de títulos](#convención-de-títulos-de-pr-y-commits).
 
 **Publicar una versión en Firebase App Distribution:** la app de Firebase, el grupo de testers `testers` y los secretos del environment `release` ya están configurados (ver [Firma de release](#firma-de-release-android)). Para publicar, ejecuta el workflow manualmente desde `main` (eligiendo grupos y notas de versión) o sube un tag desde `main`, por ejemplo `v1.0.0`. El job espera tu aprobación del environment `release` antes de usar los secretos.
 
+**Notas de la versión:** se generan solas desde `CHANGELOG.md` con `scripts/release_notes.sh`. Con un tag `vX.Y.Z` se usa la sección `[X.Y.Z]`; en una ejecución manual se usa la versión de `pubspec.yaml`. Si esa sección no existe se usa `[Sin publicar]`, y si tampoco hay contenido, el texto `Build X.Y.Z`. En una ejecución manual también puedes escribir las notas a mano en el campo `release_notes`, que tiene prioridad. Firebase muestra las notas en la consola y en el correo a los testers, con un máximo de 5000 caracteres (el script recorta a 4000).
+
 Notas: la firma de release se describe en la sección siguiente. La distribución en iOS no está configurada porque requiere certificados de firma y perfiles de aprovisionamiento.
+
+## Convención de títulos de PR y commits
+
+Los títulos de PR y la primera línea de cada commit usan **Conventional Commits**, siempre en inglés y solo con caracteres ASCII:
+
+```
+<type>(<scope>): <description>
+```
+
+El alcance `(<scope>)` es opcional, y un `!` antes de los dos puntos marca un cambio que rompe compatibilidad.
+
+| Tipo | Cuándo usarlo |
+|---|---|
+| `feat` | Funcionalidad nueva |
+| `fix` | Corrección de un bug |
+| `docs` | Solo documentación |
+| `refactor` | Cambio interno sin cambio funcional |
+| `test` | Solo pruebas |
+| `chore` | Mantenimiento, dependencias, configuración, releases |
+| `ci` | Workflows, hooks y scripts |
+| `build` | Sistema de build, Gradle, `pubspec.yaml` |
+| `perf` | Mejora de rendimiento |
+| `style` | Formato, sin cambio de lógica |
+| `revert` | Revierte un cambio anterior |
+
+Reglas:
+
+- El tipo va en minúsculas; el alcance, en minúsculas con letras, números o guiones (`scanner`, `android`, `crop-screen`).
+- Después de los dos puntos va un espacio y una descripción de al menos 3 caracteres, en imperativo y sin punto final: `add flash toggle`, no `added` ni `Se agregó`.
+- Con squash merge, el título del PR pasa a ser el mensaje del commit en `develop`.
+
+```
+feat(scanner): add flash toggle          ✔ válido
+fix(crop): keep corners inside the image ✔ válido
+chore(release): prepare version 1.0.0    ✔ válido
+feat(android)!: require minSdk 26        ✔ válido
+Release/1.0.0                            ✘ título automático de GitHub
+Add flash toggle                         ✘ falta el tipo
+feat: Agregar flash                      ✘ no está en inglés
+feat(Scanner): add flash                 ✘ alcance con mayúscula
+feat(scanner):add flash                  ✘ falta el espacio
+```
+
+> GitHub rellena el título del PR con el nombre de la rama. **Cámbialo antes de crear el PR**: `PR validation` lo rechaza si no cumple el patrón.
+
+El patrón exacto que valida el workflow es:
+
+```
+^(feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)(\([a-z0-9-]+\))?!?: .{3,}$
+```
+
+El hook `commit-msg` aplica la misma regla a los commits locales. Los nombres de rama usan `<tipo>/<kebab-case>` (ver [Estrategia de ramas](#estrategia-de-ramas)).
 
 ## Firma de release (Android)
 

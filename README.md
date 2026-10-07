@@ -280,6 +280,25 @@ El patrón exacto que valida el workflow es:
 
 El hook `commit-msg` aplica la misma regla a los commits locales. Los nombres de rama usan `<tipo>/<kebab-case>` (ver [Estrategia de ramas](#estrategia-de-ramas)).
 
+## Tamaño del APK (Android)
+
+El release publicado en App Distribution pesa **~30 MB** (antes, ~89 MB). El peso casi no está en el código sino en las librerías nativas: Flutter, el código Dart compilado (`libapp.so`) y OpenCV (`libdartcv.so`), que el APK incluye **una vez por arquitectura**.
+
+| Compilación | Tamaño |
+|---|---|
+| APK universal (`arm64-v8a` + `armeabi-v7a` + `x86_64`) | 88,8 MB |
+| Solo `arm64-v8a` | 30,8 MB |
+| Solo `arm64-v8a` + ofuscación (`--obfuscate`) | **29,9 MB** |
+
+Qué se aplica y por qué:
+
+- **Solo `arm64-v8a`** (`--target-platform android-arm64`): es la arquitectura de todos los teléfonos Android modernos (64 bits obligatorio en Play desde 2019). Se descartan `armeabi-v7a` (teléfonos antiguos de 32 bits) y `x86_64` (emuladores de escritorio). Para probar en un emulador x86_64 compila en local con `flutter build apk --release` o `flutter run`.
+- **Ofuscación y símbolos** (`--obfuscate --split-debug-info=build/symbols`): ahorra ~1 MB. Los símbolos se guardan 90 días como artefacto `app-debug-symbols` del run, para leer stack traces con `flutter symbolize -i <trace> -d <carpeta-de-símbolos>`.
+- **R8 / ProGuard ya está activo**: Flutter compila el release con minificación y reducción de recursos por defecto (se ve en `build/app/outputs/mapping/release/mapping.txt`). Todo el código Java/Kotlin ocupa solo ~2 MB (`classes.dex`), así que ajustar reglas de ProGuard o activar `isMinifyEnabled` a mano casi no ahorra y añade riesgo de romper plugins como `camera` o `photo_manager`; por eso no se toca.
+- **OpenCV ya viene mínimo**: `dartcv4` solo compila `core`, `imgproc` e `imgcodecs` por defecto, que es lo que usa la app; no hay módulos que quitar.
+
+Para publicar en Google Play, usa un App Bundle (`flutter build appbundle --release`): Play entrega a cada dispositivo solo su arquitectura y el tamaño de descarga es similar al del APK arm64.
+
 ## Firma de release (Android)
 
 El keystore y las contraseñas **nunca están en el código**: `android/app/build.gradle.kts` los lee de variables de entorno (CI) o de `android/key.properties` (local, ignorado por git). Si no hay ninguna configurada, el build release usa la clave debug para que `flutter run --release` siga funcionando en desarrollo. El workflow de distribución nunca llega a ese caso: falla si faltan los secretos y verifica que el APK no esté firmado con la clave debug.

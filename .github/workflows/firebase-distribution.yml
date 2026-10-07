@@ -79,12 +79,17 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
-      - name: Build signed release APK
+      - name: Build signed arm64 release APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: flutter build apk --release --build-number=${{ github.run_number }}
+        run: |
+          flutter build apk --release \
+            --target-platform android-arm64 \
+            --obfuscate \
+            --split-debug-info=build/symbols \
+            --build-number=${{ github.run_number }}
 
       - name: Verify the APK is not signed with a debug key
         run: |
@@ -135,6 +140,13 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Keep the debug symbols to read obfuscated stack traces
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-symbols
+          path: build/symbols
+          retention-days: 90
 
       - name: Remove release keystore
         if: ${{ always() }}

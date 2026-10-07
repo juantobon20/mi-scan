@@ -6,6 +6,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Añadido
+- El workflow de distribución guarda los símbolos de depuración (`app-debug-symbols`, 90 días) para poder leer los stack traces del APK ofuscado.
+- El README documenta el tamaño del APK, las mediciones y por qué no se ajusta ProGuard ni los módulos de OpenCV.
+
+### Cambiado
+- El APK que se publica en Firebase App Distribution se compila solo para `arm64-v8a` y con `--obfuscate`: pasa de ~89 MB a ~30 MB. Para emuladores x86_64 se compila en local.
+
 ## [1.1.0] - 2026-10-06
 
 ### Añadido

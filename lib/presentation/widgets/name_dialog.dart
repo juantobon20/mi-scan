@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/l10n.dart';
+
 Future<String?> showNameDialog(BuildContext context, {required String title, String initial = ''}) =>
     showDialog<String>(context: context, builder: (_) => _NameDialog(title: title, initial: initial));
 
@@ -26,8 +28,8 @@ class _NameDialogState extends State<_NameDialog> {
         title: Text(widget.title),
         content: TextField(controller: _ctrl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, _ctrl.text), child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.actionCancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, _ctrl.text), child: Text(context.l10n.actionSave)),
         ],
       );
 }

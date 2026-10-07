@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../scanner/scan_session.dart';
 import '../widgets/save_pdf.dart';
@@ -40,9 +41,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
   Widget build(BuildContext context) {
     final pages = session.pages;
     return Scaffold(
-      appBar: AppBar(title: Text('${pages.length} page(s)')),
+      appBar: AppBar(title: Text(context.l10n.reviewTitle(pages.length))),
       body: pages.isEmpty
-          ? const Center(child: Text('No pages'))
+          ? Center(child: Text(context.l10n.reviewEmpty))
           : ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
               itemCount: pages.length,
@@ -61,16 +62,16 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           cacheWidth: 150,
                           errorBuilder: (_, _, _) => const SizedBox(width: 48, height: 64, child: Icon(Icons.image_not_supported))),
                     ),
-                    title: Text('Page ${i + 1}'),
-                    subtitle: const Text('Long-press to reorder'),
+                    title: Text(context.l10n.reviewPage(i + 1)),
+                    subtitle: Text(context.l10n.reviewReorderHint),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(
-                        tooltip: 'Rotate',
+                        tooltip: context.l10n.actionRotate,
                         icon: const Icon(Icons.rotate_right),
                         onPressed: () => session.rotate(i),
                       ),
                       IconButton(
-                        tooltip: 'Delete',
+                        tooltip: context.l10n.actionDelete,
                         icon: const Icon(Icons.delete_outline),
                         onPressed: () {
                           session.removeAt(i);
@@ -93,7 +94,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   foregroundColor: Colors.black87,
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.add_a_photo_outlined),
-                  label: const Text('Add'),
+                  label: Text(context.l10n.actionAdd),
                 ),
                 const SizedBox(width: 12),
                 FloatingActionButton.extended(
@@ -102,7 +103,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   foregroundColor: Colors.white,
                   onPressed: pages.isEmpty ? null : _createPdf,
                   icon: const Icon(Icons.picture_as_pdf),
-                  label: const Text('Create PDF'),
+                  label: Text(context.l10n.actionCreatePdf),
                 ),
               ],
             ),

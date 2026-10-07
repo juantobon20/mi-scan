@@ -3,12 +3,14 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/quad.dart';
 import '../../domain/entities/scan_filter.dart';
 import '../../domain/entities/scan_page.dart';
 import '../scanner/scan_session.dart';
 import '../widgets/quad_painter.dart';
+import '../widgets/scan_filter_label.dart';
 
 class CropResult {
   CropResult(this.page, {required this.save});
@@ -77,7 +79,7 @@ class _CropScreenState extends State<CropScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not crop: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.cropError('$e'))));
     }
   }
 
@@ -90,24 +92,27 @@ class _CropScreenState extends State<CropScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(widget.total > 1 ? 'Adjust edges (${widget.index + 1}/${widget.total})' : 'Adjust edges'),
+        title: Text(widget.total > 1
+            ? context.l10n.cropTitleProgress(widget.index + 1, widget.total)
+            : context.l10n.cropTitle),
         actions: [
           IconButton(
-            tooltip: 'Select all',
+            tooltip: context.l10n.cropSelectAll,
             icon: const Icon(Icons.crop_free),
             onPressed: () => setState(() => _quad = _fullQuad),
           ),
           IconButton(
-            tooltip: 'Detect edges',
+            tooltip: context.l10n.cropDetectEdges,
             icon: const Icon(Icons.auto_fix_high),
             onPressed: size == null
                 ? null
                 : () async {
                     final messenger = ScaffoldMessenger.of(context);
+                    final l10n = context.l10n;
                     final q = await widget.session.detectInFile(widget.imagePath);
                     if (!mounted) return;
                     if (q == null) {
-                      messenger.showSnackBar(const SnackBar(content: Text('Document not detected')));
+                      messenger.showSnackBar(SnackBar(content: Text(l10n.cropNotDetected)));
                     } else {
                       setState(() => _quad = q.offsets);
                     }
@@ -140,10 +145,9 @@ class _CropScreenState extends State<CropScreen> {
                   ),
                 ),
                 if (!_detected)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text('Move the corners to fit the document',
-                        style: TextStyle(color: Colors.white70)),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(context.l10n.cropHint, style: const TextStyle(color: Colors.white70)),
                   ),
                 SizedBox(
                   height: 48,
@@ -155,7 +159,7 @@ class _CropScreenState extends State<CropScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: ChoiceChip(
-                            label: Text(f.label),
+                            label: Text(f.label(context.l10n)),
                             selected: _filter == f,
                             selectedColor: kScanColor,
                             onSelected: (_) => setState(() => _filter = f),
@@ -172,7 +176,7 @@ class _CropScreenState extends State<CropScreen> {
                       children: [
                         TextButton(
                           onPressed: _busy ? null : () => Navigator.pop(context),
-                          child: Text(widget.total > 1 ? 'Skip' : 'Cancel',
+                          child: Text(widget.total > 1 ? context.l10n.actionSkip : context.l10n.actionCancel,
                               style: const TextStyle(color: Colors.white)),
                         ),
                         const Spacer(),
@@ -186,7 +190,7 @@ class _CropScreenState extends State<CropScreen> {
                             style: FilledButton.styleFrom(backgroundColor: kScanColor),
                             onPressed: () => _accept(save: false),
                             icon: const Icon(Icons.arrow_forward),
-                            label: const Text('Next'),
+                            label: Text(context.l10n.actionNext),
                           )
                         else ...[
                           OutlinedButton.icon(
@@ -196,14 +200,14 @@ class _CropScreenState extends State<CropScreen> {
                             ),
                             onPressed: () => _accept(save: false),
                             icon: const Icon(Icons.add),
-                            label: const Text('Add'),
+                            label: Text(context.l10n.actionAdd),
                           ),
                           const SizedBox(width: 12),
                           FilledButton.icon(
                             style: FilledButton.styleFrom(backgroundColor: kScanColor),
                             onPressed: () => _accept(save: true),
                             icon: const Icon(Icons.picture_as_pdf),
-                            label: const Text('Save'),
+                            label: Text(context.l10n.actionSave),
                           ),
                         ],
                       ],

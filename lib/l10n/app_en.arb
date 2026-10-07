@@ -1,0 +1,134 @@
+{
+  "@@locale": "en",
+  "appName": "Mi Scan",
+  "homeTitle": "Recent",
+  "homeEmpty": "You have no documents yet.\nTap the camera to scan your first one.",
+  "homeLoadError": "Could not load documents",
+  "menuShare": "Share",
+  "menuRename": "Rename",
+  "menuDelete": "Delete",
+  "renameTitle": "Rename",
+  "deleteDocumentTitle": "Delete document?",
+  "actionCancel": "Cancel",
+  "actionDelete": "Delete",
+  "actionSave": "Save",
+  "actionAdd": "Add",
+  "actionNext": "Next",
+  "actionSkip": "Skip",
+  "actionDiscard": "Discard",
+  "actionKeepScanning": "Keep scanning",
+  "actionCreatePdf": "Create PDF",
+  "actionRotate": "Rotate",
+  "actionOpenSettings": "Open settings",
+  "actionRetry": "Retry",
+  "pdfNameTitle": "PDF name",
+  "pdfCreateError": "Could not create the PDF: {error}",
+  "@pdfCreateError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scanDefaultName": "Scan {timestamp}",
+  "@scanDefaultName": {
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "cameraPermissionDenied": "Camera permission denied. Enable it in Settings to scan.",
+  "cameraError": "Camera error: {details}",
+  "@cameraError": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "cameraOpenError": "Could not open the camera",
+  "takePhotoError": "Could not take the photo: {error}",
+  "@takePhotoError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "discardScanTitle": "Discard this scan?",
+  "discardScanMessage": "{count, plural, =1{1 unsaved page will be lost.} other{{count} unsaved pages will be lost.}}",
+  "@discardScanMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "galleryButton": "Gallery",
+  "cropTitle": "Adjust edges",
+  "cropTitleProgress": "Adjust edges ({current}/{total})",
+  "@cropTitleProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "cropSelectAll": "Select all",
+  "cropDetectEdges": "Detect edges",
+  "cropNotDetected": "Document not detected",
+  "cropHint": "Move the corners to fit the document",
+  "cropError": "Could not crop: {error}",
+  "@cropError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "filterOriginal": "Original",
+  "filterEnhanced": "Enhanced",
+  "filterGrayscale": "Grayscale",
+  "filterBlackAndWhite": "B&W",
+  "reviewTitle": "{count, plural, =1{1 page} other{{count} pages}}",
+  "@reviewTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEmpty": "No pages",
+  "reviewPage": "Page {number}",
+  "@reviewPage": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewReorderHint": "Long-press to reorder",
+  "galleryTitle": "Choose images",
+  "gallerySelected": "{count} selected",
+  "@gallerySelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "galleryEmpty": "No images",
+  "galleryNoPermission": "No permission to access photos.",
+  "galleryAdd": "Add ({count})",
+  "@galleryAdd": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}

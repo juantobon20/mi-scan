@@ -76,7 +76,7 @@ List<String> defaultTargets() {
 }
 
 bool _isExcluded(String path) =>
-    path.startsWith('tool/') || path.startsWith('test/tool/');
+    path.startsWith('tool/') || path.startsWith('test/tool/') || path.startsWith('lib/l10n/');
 
 bool _isChecked(String path) {
   if (_isExcluded(path)) return false;

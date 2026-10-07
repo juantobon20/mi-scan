@@ -49,6 +49,8 @@ void main() {
   tearDown(sl.reset);
 
   testWidgets('list, rename, share and delete a document', (tester) async {
+    tester.platformDispatcher.localesTestValue = [const Locale('en')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
     await tester.pumpWidget(const MiScanApp());
     await tester.pumpAndSettle();
     expect(find.text('Contract'), findsOneWidget);
@@ -76,6 +78,8 @@ void main() {
   });
 
   testWidgets('open the scanner and discard with the close button', (tester) async {
+    tester.platformDispatcher.localesTestValue = [const Locale('en')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
     await tester.pumpWidget(const MiScanApp());
     await tester.pumpAndSettle();
 

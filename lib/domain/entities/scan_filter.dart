@@ -1,9 +1,1 @@
-enum ScanFilter {
-  original('Original'),
-  enhanced('Enhanced'),
-  grayscale('Grayscale'),
-  blackAndWhite('B&W');
-
-  const ScanFilter(this.label);
-  final String label;
-}
+enum ScanFilter { original, enhanced, grayscale, blackAndWhite }

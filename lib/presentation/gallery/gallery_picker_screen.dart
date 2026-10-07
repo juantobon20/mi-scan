@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 
 class GalleryPickerScreen extends StatefulWidget {
@@ -123,22 +124,22 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> with WidgetsB
   Widget build(BuildContext context) {
     final n = _selected.length;
     return Scaffold(
-      appBar: AppBar(title: Text(n == 0 ? 'Choose images' : '$n selected')),
+      appBar: AppBar(title: Text(n == 0 ? context.l10n.galleryTitle : context.l10n.gallerySelected(n))),
       body: _denied
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Text('No permission to access photos.', textAlign: TextAlign.center),
+                  Text(context.l10n.galleryNoPermission, textAlign: TextAlign.center),
                   const SizedBox(height: 12),
-                  FilledButton(onPressed: PhotoManager.openSetting, child: const Text('Open settings')),
+                  FilledButton(onPressed: PhotoManager.openSetting, child: Text(context.l10n.actionOpenSettings)),
                 ]),
               ),
             )
           : _loading
               ? const Center(child: CircularProgressIndicator(color: kScanColor))
               : _assets.isEmpty
-                  ? const Center(child: Text('No images'))
+                  ? Center(child: Text(context.l10n.galleryEmpty))
                   : GridView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.only(bottom: 96),
@@ -199,7 +200,7 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> with WidgetsB
                   foregroundColor: Colors.white,
                   onPressed: _confirm,
                   icon: const Icon(Icons.add),
-                  label: Text('Add ($n)'),
+                  label: Text(context.l10n.galleryAdd(n)),
                 ),
     );
   }

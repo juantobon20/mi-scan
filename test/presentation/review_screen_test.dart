@@ -34,7 +34,7 @@ void main() {
 
   testWidgets('shows the counter and one row per page', (tester) async {
     await pumpReview(tester, 3);
-    expect(find.text('3 page(s)'), findsOneWidget);
+    expect(find.text('3 pages'), findsOneWidget);
     expect(find.text('Page 1'), findsOneWidget);
     expect(find.text('Page 3'), findsOneWidget);
   });
@@ -44,7 +44,7 @@ void main() {
     await tester.tap(find.byTooltip('Delete').first);
     await tester.pump();
     expect(session.pages, hasLength(1));
-    expect(find.text('1 page(s)'), findsOneWidget);
+    expect(find.text('1 page'), findsOneWidget);
   });
 
   testWidgets('deleting the last page closes the screen', (tester) async {

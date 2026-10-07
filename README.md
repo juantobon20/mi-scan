@@ -224,6 +224,8 @@ Los títulos de PR y los mensajes de commit siguen la [convención de títulos](
 
 **Publicar una versión en Firebase App Distribution:** la app de Firebase, el grupo de testers `testers` y los secretos del environment `release` ya están configurados (ver [Firma de release](#firma-de-release-android)). Para publicar, ejecuta el workflow manualmente desde `main` (eligiendo grupos y notas de versión) o sube un tag desde `main`, por ejemplo `v1.0.0`. El job espera tu aprobación del environment `release` antes de usar los secretos.
 
+**Verificación del tag:** antes de compilar, el workflow comprueba con `scripts/check_release_version.sh` que la versión del tag (`v1.1.0`) coincida con la de `pubspec.yaml` y que `CHANGELOG.md` tenga la sección `[1.1.0]`. Si no coinciden, por ejemplo porque el tag se creó sobre un `main` desactualizado, el run falla antes de gastar tiempo de compilación y no se publica nada. En ejecuciones manuales no se aplica.
+
 **Notas de la versión:** se generan solas desde `CHANGELOG.md` con `scripts/release_notes.sh`. Con un tag `vX.Y.Z` se usa la sección `[X.Y.Z]`; en una ejecución manual se usa la versión de `pubspec.yaml`. Si esa sección no existe se usa `[Sin publicar]`, y si tampoco hay contenido, el texto `Build X.Y.Z`. En una ejecución manual también puedes escribir las notas a mano en el campo `release_notes`, que tiene prioridad. Firebase muestra las notas en la consola y en el correo a los testers, con un máximo de 5000 caracteres (el script recorta a 4000).
 
 Notas: la firma de release se describe en la sección siguiente. La distribución en iOS no está configurada porque requiere certificados de firma y perfiles de aprovisionamiento.

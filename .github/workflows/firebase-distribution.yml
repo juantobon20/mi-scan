@@ -39,6 +39,10 @@ jobs:
             exit 1
           fi
 
+      - name: Require the tag version to match pubspec.yaml and CHANGELOG.md
+        if: ${{ github.event_name == 'push' }}
+        run: ./scripts/check_release_version.sh "$GITHUB_REF_NAME"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

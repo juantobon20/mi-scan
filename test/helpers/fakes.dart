@@ -19,6 +19,7 @@ import 'package:mi_scan/domain/services/gallery_service.dart';
 import 'package:mi_scan/domain/services/image_processor.dart';
 import 'package:mi_scan/domain/services/pdf_generator.dart';
 import 'package:mi_scan/domain/services/share_service.dart';
+import 'package:mi_scan/domain/services/text_recognizer.dart';
 
 final Uint8List kTinyPng = Uint8List.fromList(const [
   0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
@@ -108,7 +109,9 @@ class InMemoryDocumentRepository implements DocumentRepository {
   InMemoryDocumentRepository([List<ScannedDocument> initial = const []]) : docs = [...initial];
   final List<ScannedDocument> docs;
   final queries = <DocumentQuery>[];
+  final texts = <String, String>{};
   Object? listError;
+  Object? saveTextError;
   var _next = 0;
 
   @override
@@ -117,11 +120,12 @@ class InMemoryDocumentRepository implements DocumentRepository {
     final error = listError;
     if (error != null) throw error;
     final tokens = searchTokens(query.text);
+    bool matches(ScannedDocument d, String token) =>
+        normalizeSearchText(d.name).contains(token) || normalizeSearchText(texts[d.id] ?? '').contains(token);
     return [
       for (final d in docs)
-        if ((query.folderId == null || d.folderId == query.folderId) &&
-            tokens.every(normalizeSearchText(d.name).contains))
-          d,
+        if ((query.folderId == null || d.folderId == query.folderId) && tokens.every((t) => matches(d, t)))
+          d.withText(hasText: (texts[d.id] ?? '').isNotEmpty),
     ];
   }
 
@@ -157,7 +161,20 @@ class InMemoryDocumentRepository implements DocumentRepository {
   }
 
   @override
-  Future<void> delete(ScannedDocument doc) async => docs.removeWhere((d) => d.id == doc.id);
+  Future<void> delete(ScannedDocument doc) async {
+    docs.removeWhere((d) => d.id == doc.id);
+    texts.remove(doc.id);
+  }
+
+  @override
+  Future<void> saveText(String documentId, String text) async {
+    final error = saveTextError;
+    if (error != null) throw error;
+    texts[documentId] = text;
+  }
+
+  @override
+  Future<String?> getText(String documentId) async => texts[documentId];
 }
 
 class InMemoryFolderRepository implements FolderRepository {
@@ -381,4 +398,27 @@ class FakeGalleryService implements GalleryService {
 
   @override
   Future<void> openSettings() async => settingsOpened++;
+}
+
+class FakeTextRecognizer implements TextRecognizer {
+  FakeTextRecognizer({Map<String, String>? texts, this.defaultText = ''}) : texts = texts ?? {};
+
+  final Map<String, String> texts;
+  final String defaultText;
+  final recognized = <String>[];
+  final failing = <String>{};
+  bool failAll = false;
+  Completer<void>? gate;
+  var disposed = false;
+
+  @override
+  Future<RecognizedText> recognize(String imagePath) async {
+    recognized.add(imagePath);
+    await gate?.future;
+    if (failAll || failing.contains(imagePath)) throw StateError('cannot read $imagePath');
+    return RecognizedText(texts[imagePath] ?? defaultText);
+  }
+
+  @override
+  Future<void> dispose() async => disposed = true;
 }

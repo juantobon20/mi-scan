@@ -173,5 +173,19 @@
         "type": "String"
       }
     }
+  },
+  "menuViewText": "View text",
+  "textCopy": "Copy text",
+  "textCopied": "Text copied",
+  "textEmpty": "No text was found in this document.",
+  "ocrRecognizing": "Recognizing text...",
+  "searchableText": "Searchable text",
+  "ocrFailed": "Could not recognize the text of \"{name}\".",
+  "@ocrFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

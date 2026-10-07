@@ -23,7 +23,8 @@ presentation ──▶ domain ◀── data        core/di = composition root
 
 La cámara y la galería están detrás de `CameraService`/`CameraSession` y `GalleryService` (domain); las implementaciones con plugins viven en `lib/data/services/` y las pantallas usan `ScannerController`/`GalleryController` creados por `ScreenFactory`. El escáner solo usa cámaras traseras y cambia de lente según el zoom (nunca hay botones de lente ni cámara frontal). Brechas conocidas: la detección de bordes de `OpenCvImageProcessor`, `PluginCameraSession` y `PhotoManagerGalleryService` no tienen pruebas automatizadas (se validan en un teléfono); los filtros de OpenCV sí se prueban en el simulador con `integration_test/opencv_filters_test.dart`.
 
-- Cambios de esquema: sube `AppDatabase.schemaVersion`, agrega la migración en `onUpgrade` y pruébala con una base creada con el esquema anterior. Los repositorios SQLite se prueban con `sqflite_common_ffi` (`test/helpers/sqlite_helpers.dart`) y con el plugin real en `integration_test/storage_test.dart`.
+- OCR: `TextRecognizer` (domain) con `MlKitTextRecognizer` (data); se ejecuta al guardar un escaneo, mientras existen las imágenes de la sesión (`HomeScreen._scan` no borra la sesión hasta que termina). La base va por la versión 2.
+- Cambios de esquema: agrega un paso al final de `AppDatabase._migrations`, sube `AppDatabase.schemaVersion`, agrega la migración en `onUpgrade` y pruébala con una base creada con el esquema anterior. Los repositorios SQLite se prueban con `sqflite_common_ffi` (`test/helpers/sqlite_helpers.dart`) y con el plugin real en `integration_test/storage_test.dart`.
 
 ## Comandos
 
@@ -66,6 +67,8 @@ flutter drive --driver=test_driver/integration_test.dart --target=integration_te
 - `firebase-distribution.yml`: APK release de Android a Firebase App Distribution (manual o tag `v*`); requiere los secretos `FIREBASE_ANDROID_APP_ID` y `FIREBASE_SERVICE_ACCOUNT_JSON`.
 
 ## Detalles a tener en cuenta
+
+- **iOS:** ML Kit exige CocoaPods (`brew install cocoapods`) e iOS 15.5+, y **no trae arm64 para simulador**: en Apple Silicon la app no corre en simuladores de iOS 26. Verifica iOS con `flutter build ios --no-codesign` o en un iPhone real, y ejecuta las pruebas de integración en un emulador Android (`flutter test integration_test -d <emulador>`).
 
 - `opencv_dart` necesita assets nativos; el primer build de iOS/Android es lento. La cámara y la detección en vivo solo funcionan en un dispositivo real.
 - Se usan los parámetros nombrados privados de Dart 3.12 (`required this._createDocument` en `ScanSession`); quien llama pasa `createDocument:`.

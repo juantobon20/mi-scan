@@ -535,6 +535,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong: {error}'**
   String genericError(String error);
+
+  /// No description provided for @menuViewText.
+  ///
+  /// In en, this message translates to:
+  /// **'View text'**
+  String get menuViewText;
+
+  /// No description provided for @textCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy text'**
+  String get textCopy;
+
+  /// No description provided for @textCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Text copied'**
+  String get textCopied;
+
+  /// No description provided for @textEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No text was found in this document.'**
+  String get textEmpty;
+
+  /// No description provided for @ocrRecognizing.
+  ///
+  /// In en, this message translates to:
+  /// **'Recognizing text...'**
+  String get ocrRecognizing;
+
+  /// No description provided for @searchableText.
+  ///
+  /// In en, this message translates to:
+  /// **'Searchable text'**
+  String get searchableText;
+
+  /// No description provided for @ocrFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not recognize the text of \"{name}\".'**
+  String ocrFailed(String name);
 }
 
 class _AppLocalizationsDelegate

@@ -9,6 +9,7 @@ class ScannedDocument {
     this.folderId,
     this.pageCount = 0,
     this.createdAt,
+    this.hasText = false,
   });
 
   final String id;
@@ -22,6 +23,8 @@ class ScannedDocument {
   final String? thumbPath;
 
   final String? folderId;
+
+  final bool hasText;
 
   ScannedDocument copyWith({
     String? name,
@@ -40,6 +43,7 @@ class ScannedDocument {
         pageCount: pageCount,
         thumbPath: clearThumb ? null : (thumbPath ?? this.thumbPath),
         folderId: folderId,
+        hasText: hasText,
       );
 
   ScannedDocument movedTo(String? folderId) => ScannedDocument(
@@ -52,6 +56,20 @@ class ScannedDocument {
         pageCount: pageCount,
         thumbPath: thumbPath,
         folderId: folderId,
+        hasText: hasText,
+      );
+
+  ScannedDocument withText({required bool hasText}) => ScannedDocument(
+        id: id,
+        pdfPath: pdfPath,
+        name: name,
+        modified: modified,
+        createdAt: createdAt,
+        sizeBytes: sizeBytes,
+        pageCount: pageCount,
+        thumbPath: thumbPath,
+        folderId: folderId,
+        hasText: hasText,
       );
 
   @override
@@ -65,10 +83,11 @@ class ScannedDocument {
       other.sizeBytes == sizeBytes &&
       other.pageCount == pageCount &&
       other.thumbPath == thumbPath &&
-      other.folderId == folderId;
+      other.folderId == folderId &&
+      other.hasText == hasText;
 
   @override
-  int get hashCode => Object.hash(id, pdfPath, name, modified, createdAt, sizeBytes, pageCount, thumbPath, folderId);
+  int get hashCode => Object.hash(id, pdfPath, name, modified, createdAt, sizeBytes, pageCount, thumbPath, folderId, hasText);
 
   @override
   String toString() => 'ScannedDocument($id, $name, folder: $folderId)';

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_scan/domain/entities/folder.dart';
+import 'package:mi_scan/domain/entities/scan_page.dart';
 import 'package:mi_scan/presentation/home/home_controller.dart';
 import 'package:mi_scan/presentation/home/home_screen.dart';
 import 'package:mi_scan/presentation/scanner/scan_session.dart';
@@ -379,6 +381,151 @@ void main() {
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
       expect(docs.docs.single.folderId, isNull);
+    });
+  });
+
+  group('recognized text', () {
+    testWidgets('a document with text shows the searchable indicator and the View text option', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Invoice', id: 'a'), sampleDoc('Photo', id: 'b')]);
+      docs.texts['a'] = 'Total due 120';
+      await ctrl.load();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('has_text')), findsOneWidget);
+      expect(find.text('Searchable text'), findsOneWidget);
+    });
+
+    testWidgets('View text opens the recognized text', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Invoice', id: 'a')]);
+      docs.texts['a'] = 'Total due 120';
+      await ctrl.load();
+      await tester.pumpAndSettle();
+      await openMenu(tester, 'View text');
+      expect(find.text('Total due 120'), findsOneWidget);
+      expect(find.byKey(const Key('copy_text')), findsOneWidget);
+    });
+
+    testWidgets('documents without text do not offer View text', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Photo')]);
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      expect(find.text('View text'), findsNothing);
+    });
+
+    testWidgets('searching finds documents by their text', (tester) async {
+      await pumpHome(tester, documents: [sampleDoc('Scan 1', id: 'a'), sampleDoc('Scan 2', id: 'b')]);
+      docs.texts['b'] = 'Mortgage payment';
+      await ctrl.load();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search_button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('search_field')), 'mortgage');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      expect(find.text('Scan 2'), findsOneWidget);
+      expect(find.text('Scan 1'), findsNothing);
+    });
+
+    testWidgets('shows progress while the text is being recognized', (tester) async {
+      final recognizer = FakeTextRecognizer(defaultText: 'hello')..gate = Completer<void>();
+      usePhoneScreen(tester);
+      docs = InMemoryDocumentRepository([sampleDoc('Doc', id: 'a')]);
+      ctrl = makeHomeController(documents: docs, recognizer: recognizer);
+      await pumpApp(tester, HomeScreen(controller: ctrl, startSession: startSession, factory: fakeScreenFactory()));
+      await tester.pumpAndSettle();
+      final running = ctrl.recognizeText(docs.docs.single, const [ScanPage('/p.jpg', 1, 1)]);
+      await tester.pump();
+      expect(find.byKey(const Key('ocr_progress')), findsOneWidget);
+      expect(find.text('Recognizing text...'), findsOneWidget);
+      recognizer.gate!.complete();
+      await running;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ocr_progress')), findsNothing);
+      expect(find.byKey(const Key('has_text')), findsOneWidget);
+    });
+  });
+
+  group('scanning a document', () {
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    late Directory sessionDir;
+    late FakeTextRecognizer recognizer;
+    late FakeImageProcessor processor;
+
+    Future<void> scanOnePage(WidgetTester tester, {FakeTextRecognizer? withRecognizer}) async {
+      usePhoneScreen(tester);
+      sessionDir = Directory.systemTemp.createTempSync('scan_flow_');
+      final photo = File('${sessionDir.path}/photo.png')..writeAsBytesSync(kTinyPng);
+      processor = FakeImageProcessor();
+      recognizer = withRecognizer ?? FakeTextRecognizer(defaultText: 'Recognized words');
+      docs = InMemoryDocumentRepository();
+      folders = InMemoryFolderRepository(docs);
+      share = FakeShareService();
+      ctrl = makeHomeController(documents: docs, folders: folders, share: share, recognizer: recognizer);
+      final workDir = Directory('${sessionDir.path}/session')..createSync();
+      await pumpApp(
+        tester,
+        HomeScreen(
+          controller: ctrl,
+          startSession: () async => buildSession(workDir, processor: processor, repo: docs),
+          factory: fakeScreenFactory(camera: FakeCameraService(photoPath: photo.path)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan_fab')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('mode_batch')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('shutter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('batch_done')));
+      await settle(tester);
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Save'));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await settle(tester);
+      await tester.enterText(find.byType(TextField), 'Scanned doc');
+      await tester.tap(find.text('Save'));
+    }
+
+    testWidgets('the text of the new document is recognized in the background and saved', (tester) async {
+      await scanOnePage(tester);
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(docs.docs.single.name, 'Scanned doc');
+      expect(recognizer.recognized, hasLength(1));
+      expect(docs.texts[docs.docs.single.id], 'Recognized words');
+      expect(find.byKey(const Key('has_text')), findsOneWidget);
+      expect(share.shared, ['/mem/Scanned doc.pdf']);
+    });
+
+    testWidgets('the page images are kept until the recognition ends and deleted afterwards', (tester) async {
+      final gated = FakeTextRecognizer(defaultText: 'x')..gate = Completer<void>();
+      await scanOnePage(tester, withRecognizer: gated);
+      await settle(tester);
+      final workDir = Directory('${sessionDir.path}/session');
+      expect(workDir.existsSync(), isTrue);
+      expect(find.byKey(const Key('ocr_progress')), findsOneWidget);
+      gated.gate!.complete();
+      await settle(tester);
+      expect(workDir.existsSync(), isFalse);
+      expect(find.byKey(const Key('ocr_progress')), findsNothing);
+    });
+
+    testWidgets('a failed recognition tells the user and still keeps the document', (tester) async {
+      final failing = FakeTextRecognizer()..failAll = true;
+      await scanOnePage(tester, withRecognizer: failing);
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(docs.docs, hasLength(1));
+      expect(docs.texts, isEmpty);
+      expect(find.text('Could not recognize the text of "Scanned doc".'), findsOneWidget);
+      expect(find.byKey(const Key('has_text')), findsNothing);
     });
   });
 

@@ -1,5 +1,4 @@
 import 'package:get_it/get_it.dart';
-
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -8,6 +7,7 @@ import '../../data/repositories/sqlite_folder_repository.dart';
 import '../../data/services/app_directories.dart';
 import '../../data/services/camera/plugin_camera_service.dart';
 import '../../data/services/file_session_storage.dart';
+import '../../data/services/ml_kit_text_recognizer.dart';
 import '../../data/services/opencv_image_processor.dart';
 import '../../data/services/pdf_services.dart';
 import '../../data/services/photo_manager_gallery_service.dart';
@@ -21,6 +21,7 @@ import '../../domain/services/gallery_service.dart';
 import '../../domain/services/image_processor.dart';
 import '../../domain/services/pdf_generator.dart';
 import '../../domain/services/share_service.dart';
+import '../../domain/services/text_recognizer.dart';
 import '../../domain/usecases/document_usecases.dart';
 import '../../domain/usecases/folder_usecases.dart';
 import '../../presentation/gallery/gallery_controller.dart';
@@ -38,6 +39,9 @@ void configureDependencies() {
     ..registerLazySingleton<PdfGenerator>(PdfPackageGenerator.new)
     ..registerLazySingleton<ThumbnailGenerator>(UiThumbnailGenerator.new)
     ..registerLazySingleton<ShareService>(SharePlusService.new)
+    ..registerLazySingleton<TextRecognizer>(MlKitTextRecognizer.new)
+    ..registerLazySingleton(() => RecognizeDocumentText(sl(), sl()))
+    ..registerLazySingleton(() => GetDocumentText(sl()))
     ..registerLazySingleton<CameraService>(PluginCameraService.new)
     ..registerFactory<GalleryService>(PhotoManagerGalleryService.new)
     ..registerLazySingleton<SessionStorage>(() => FileSessionStorage(sl()))
@@ -71,6 +75,8 @@ void configureDependencies() {
         createFolder: sl(),
         renameFolder: sl(),
         deleteFolder: sl(),
+        recognizeText: sl(),
+        getText: sl(),
         shareService: sl(),
       ),
     )

@@ -16,7 +16,8 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 - Generación de **PDF** (A4, vertical u horizontal según la imagen) con miniatura.
 - Lista de documentos: compartir, renombrar (se resuelven colisiones de nombre), mover a una carpeta y eliminar; cada documento muestra su fecha, tamaño y número de páginas.
 - **Carpetas**: crear, renombrar y eliminar (los documentos de una carpeta eliminada se conservan, sin carpeta). Un escaneo nuevo se guarda en la carpeta que esté abierta.
-- **Búsqueda** por nombre sin distinguir mayúsculas ni acentos: todas las palabras deben coincidir y se combina con la carpeta elegida.
+- **Búsqueda** por nombre **y por el texto del documento**, sin distinguir mayúsculas ni acentos: todas las palabras deben coincidir (cada una en el nombre o en el contenido) y se combina con la carpeta elegida.
+- **OCR en el dispositivo** (ML Kit, escritura latina: inglés, español y otros idiomas latinos): al guardar un escaneo, el texto de sus páginas se reconoce en segundo plano, sin enviar nada a internet. Cada documento con texto muestra «Texto buscable», se puede abrir con «Ver texto» y copiar.
 - **Almacenamiento en SQLite**: los metadatos viven en una base de datos local; los PDFs que guardó una versión anterior sin base de datos se importan solos.
 - Tema claro/oscuro Material 3.
 - Interfaz en **inglés y español** según el idioma del dispositivo (inglés por defecto).
@@ -33,6 +34,8 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 | Almacenamiento | `path_provider`, `path` |
 | Inyección de dependencias | `get_it` |
 | Localización | `flutter_localizations`, `intl` (`flutter gen-l10n`) |
+| OCR | `google_mlkit_text_recognition` (ML Kit, en el dispositivo) |
+| Base de datos | `sqflite` (y `sqflite_common_ffi` en las pruebas) |
 | Pruebas | `flutter_test`, `mocktail`, `integration_test` |
 
 Manejo de estado: `ChangeNotifier` + `ListenableBuilder` (sin librería adicional; suficiente para el tamaño de la app).
@@ -63,7 +66,7 @@ lib/
 │   │                             # CameraInfo, ZoomRange, FlashSetting, GalleryImage
 │   ├── repositories/             # DocumentRepository, FolderRepository (interfaces)
 │   ├── services/                 # ImageProcessor, PdfGenerator, ThumbnailGenerator,
-│   │                             # ShareService, SessionStorage, CameraService/CameraSession,
+│   │                             # ShareService, SessionStorage, TextRecognizer, CameraService/CameraSession,
 │   │                             # GalleryService (interfaces)
 │   └── usecases/                 # ListDocuments, CreateDocument, RenameDocument, MoveDocument,
 │                                 # DeleteDocument, ListFolders, CreateFolder, RenameFolder, DeleteFolder
@@ -74,7 +77,7 @@ lib/
 │   └── services/                 # OpenCvImageProcessor, PdfPackageGenerator,
 │       │                         # UiThumbnailGenerator, SharePlusService,
 │       │                         # PathProviderDirectories, FileSessionStorage,
-│       │                         # PhotoManagerGalleryService
+│       │                         # PhotoManagerGalleryService, MlKitTextRecognizer
 │       └── camera/               # PluginCameraService, mapeos y frame_converter
 └── presentation/
     ├── home/                     # HomeScreen + HomeController
@@ -127,7 +130,11 @@ Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 | `DocumentRepository.list` | Recibe un `DocumentQuery` (carpeta y texto). Más reciente primero; las miniaturas no se listan como documentos. La búsqueda divide el texto en palabras, normaliza mayúsculas y acentos (`normalizeSearchText`) y exige que todas aparezcan en el nombre; `%`, `_` y `\` se buscan literalmente. |
 | `DocumentRepository.move` | Cambia la carpeta (`null` = sin carpeta). Mover a una carpeta que no existe falla por la clave foránea. `MoveDocument` no toca el repositorio si la carpeta no cambia. |
 | `FolderRepository` | Los nombres son únicos sin distinguir mayúsculas ni acentos: un repetido recibe un sufijo (`Work`, `Work (2)`). `list` devuelve cada carpeta con su número de documentos, ordenadas por nombre. Eliminar una carpeta deja sus documentos sin carpeta (`ON DELETE SET NULL`). |
-| `AppDatabase` | Abre `mi_scan.db` de forma perezosa, activa las claves foráneas y crea el esquema (`folders`, `documents` y sus índices). `schemaVersion` es 1; los cambios futuros se aplican con `onUpgrade`. |
+| `AppDatabase` | Abre `mi_scan.db` de forma perezosa, activa las claves foráneas y aplica las migraciones en orden: una lista de pasos, donde el paso *n* lleva la base de la versión *n* a la *n+1*. Una base nueva ejecuta todos los pasos; una existente solo los que le faltan. `schemaVersion` es 2: la v1 crea `folders` y `documents`; la v2 añade `content_text` (texto reconocido) y `search_content` (el mismo texto normalizado para buscar). Una base de la fase anterior se actualiza conservando todas sus filas. |
+| `TextRecognizer` | `recognize(imagePath)` devuelve un `RecognizedText`; `dispose` libera el motor (se puede volver a usar después). `MlKitTextRecognizer` usa el reconocedor de escritura latina de ML Kit. |
+| `RecognizeDocumentText` | Reconoce las páginas una a una, recorta cada texto, descarta las páginas vacías y une el resto con una línea en blanco. Si una página falla, sigue con las demás y la cuenta en `failedPages`; solo guarda si hay texto. Devuelve un `OcrOutcome`. |
+| Texto y búsqueda | `DocumentRepository.saveText(id, texto)` reemplaza el texto anterior y `getText(id)` lo lee; la lista no carga el texto completo, solo el indicador `hasText`. Al buscar, cada palabra debe aparecer en el nombre **o** en el contenido; renombrar, mover y reabrir la app conservan el texto, y eliminar el documento lo elimina. |
+| OCR en segundo plano | Al volver del escáner con un documento nuevo, `HomeScreen` copia las páginas, abre la lista de inmediato y lanza `HomeController.recognizeText`. Las imágenes de la sesión se conservan hasta que termina el reconocimiento (con éxito o con error) y entonces se borran. Mientras corre, el documento muestra «Reconociendo texto...». Si falla por completo se avisa con un mensaje y el documento se conserva sin texto. |
 | Sincronización con el disco | La primera vez que se usa el repositorio en cada arranque: los PDFs que hay en disco sin fila se importan (nombre, tamaño, fecha de modificación y número de páginas contado en el PDF) y las filas cuyo PDF ya no existe se eliminan. |
 | `HomeController` | Mantiene documentos, carpetas, carpeta elegida y texto de búsqueda. La búsqueda espera 250 ms después de la última tecla, y una respuesta lenta anterior nunca pisa a una más reciente. `onDocumentScanned` mueve el escaneo nuevo a la carpeta abierta. |
 | `ScanSession.move` | Misma semántica que `ReorderableListView.onReorderItem` (índice después de quitar el elemento). |
@@ -175,6 +182,7 @@ flutter test --coverage
 | Widgets | `HomeScreen` (vacío, carga, error/reintento, renombrar, eliminar, compartir), `ReviewScreen`, `CropScreen` (filtros, guardar/agregar/cancelar, lote, arrastre), `QuadPainter` |
 | Localización | Claves y placeholders idénticos en los ARB, plurales, resolución de idioma (`es`, `es-MX`, idiomas no soportados → inglés) y pantallas en español |
 | OpenCV real | `integration_test/opencv_filters_test.dart` ejecuta el procesador real en un simulador o dispositivo: Grises deja canales iguales, B/N deja solo píxeles blancos y negros, Mejorado aclara la imagen, la vista previa respeta `maxSide` sin ampliar, y el recorte aplica el mismo filtro que la vista previa |
+| OCR real | `integration_test/ocr_test.dart` ejecuta ML Kit y la base real: lee las palabras de una imagen generada, devuelve vacío en una imagen en blanco, el reconocedor se puede reutilizar tras `dispose` y un documento escaneado se encuentra buscando por su contenido |
 | SQLite real | `integration_test/storage_test.dart` ejecuta los mismos repositorios con el plugin nativo de `sqflite` en un simulador o dispositivo: CRUD, búsqueda, carpetas, claves foráneas, persistencia e importación |
 | Integración | Flujo completo con el árbol real de widgets y el contenedor de DI en un simulador iOS: listar → renombrar → compartir → eliminar; abrir y cerrar el escáner |
 
@@ -217,7 +225,9 @@ La app está disponible en **inglés** y **español**, con `flutter gen-l10n` y 
 
 ## Ejecución
 
-Requisitos: Flutter 3.44+ (Dart ^3.12).
+Requisitos: Flutter 3.44+ (Dart ^3.12). Para compilar iOS hace falta **CocoaPods** (`brew install cocoapods`), porque ML Kit solo existe como pod; el iOS mínimo es **15.5**.
+
+> **Simuladores de iOS:** los pods de ML Kit no incluyen la arquitectura arm64 para simulador, y los simuladores de iOS 26 en Apple Silicon solo ejecutan arm64, así que la app **no se puede ejecutar en un simulador de iOS** en un Mac con Apple Silicon. Usa un iPhone real o un emulador/teléfono Android; las pruebas de integración se ejecutan en Android (`flutter test integration_test -d <emulador>`). Para comprobar que iOS compila: `flutter build ios --no-codesign`.
 
 ```bash
 flutter pub get
@@ -472,6 +482,9 @@ Cumplimiento:
 - Los factores 0,5x y 2x del cambio de lente en teléfonos con lentes separados son estimaciones: el plugin `camera` no expone las distancias focales, por lo que el encuadre puede dar un pequeño salto al cambiar. Solo se validó en un Galaxy S23 Ultra, que expone la multicámara lógica.
 - La detección de bordes de `OpenCvImageProcessor` (`detectInFile`, `detectInFrame`) no tiene pruebas automatizadas; los filtros, el recorte y la reducción sí se verifican con OpenCV real en el simulador (`integration_test/opencv_filters_test.dart`).
 - Solo hay dos idiomas (inglés y español) y no existe un selector de idioma dentro de la app.
-- No hay etiquetas ni búsqueda dentro del contenido de los documentos (llega con el OCR).
+- El OCR solo conoce la escritura latina (inglés, español, francés, etc.); no reconoce chino, japonés, coreano, devanagari ni árabe. La precisión depende de la calidad de la foto.
+- Los PDFs importados de versiones anteriores y los documentos ya guardados no tienen texto: el OCR se hace al guardar un escaneo nuevo, mientras las imágenes todavía existen. No hay forma de reconocer el texto después.
+- El texto reconocido no se incrusta en el PDF: sirve para buscar y copiar dentro de la app, pero al compartir el PDF no es seleccionable.
+- No hay etiquetas.
 - Las carpetas son un solo nivel (no hay subcarpetas) y un documento pertenece a una sola carpeta.
 - No están configurados la firma de release, la distribución en iOS ni el versionado automático.

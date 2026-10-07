@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/document_query.dart';
 import '../../domain/entities/folder.dart';
+import '../../domain/entities/scan_page.dart';
 import '../../domain/entities/scanned_document.dart';
 import '../../domain/services/share_service.dart';
 import '../../domain/usecases/document_usecases.dart';
@@ -19,6 +20,8 @@ class HomeController extends ChangeNotifier {
     required this._createFolder,
     required this._renameFolder,
     required this._deleteFolder,
+    required this._recognizeText,
+    required this._getText,
     required ShareService shareService,
     this.searchDebounce = const Duration(milliseconds: 250),
   })  : _list = listDocuments,
@@ -36,12 +39,15 @@ class HomeController extends ChangeNotifier {
   final CreateFolder _createFolder;
   final RenameFolder _renameFolder;
   final DeleteFolder _deleteFolder;
+  final RecognizeDocumentText _recognizeText;
+  final GetDocumentText _getText;
   final ShareService _share;
 
   List<ScannedDocument>? _documents;
   List<FolderSummary> _folders = const [];
   DocumentQuery _query = const DocumentQuery();
   Object? _error;
+  final Set<String> _recognizing = {};
   Timer? _debounce;
   int _request = 0;
   bool _disposed = false;
@@ -53,6 +59,8 @@ class HomeController extends ChangeNotifier {
   String get searchText => _query.text;
   bool get isSearching => _query.hasText;
   Object? get error => _error;
+  Set<String> get recognizingIds => Set.unmodifiable(_recognizing);
+  bool isRecognizing(ScannedDocument doc) => _recognizing.contains(doc.id);
 
   Folder? get selectedFolder {
     final id = _query.folderId;
@@ -144,6 +152,21 @@ class HomeController extends ChangeNotifier {
     await load();
     return stored;
   }
+
+  Future<OcrOutcome> recognizeText(ScannedDocument doc, List<ScanPage> pages) async {
+    _recognizing.add(doc.id);
+    _notify();
+    try {
+      return await _recognizeText(doc, pages);
+    } catch (_) {
+      return OcrOutcome(recognizedPages: 0, failedPages: pages.length, hasText: false);
+    } finally {
+      _recognizing.remove(doc.id);
+      await load();
+    }
+  }
+
+  Future<String?> loadText(ScannedDocument doc) => _getText(doc);
 
   Future<void> share(ScannedDocument doc) => _share.sharePdf(doc.pdfPath, subject: doc.name);
 

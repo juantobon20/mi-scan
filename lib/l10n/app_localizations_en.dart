@@ -269,4 +269,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String genericError(String error) {
     return 'Something went wrong: $error';
   }
+
+  @override
+  String get menuViewText => 'View text';
+
+  @override
+  String get textCopy => 'Copy text';
+
+  @override
+  String get textCopied => 'Text copied';
+
+  @override
+  String get textEmpty => 'No text was found in this document.';
+
+  @override
+  String get ocrRecognizing => 'Recognizing text...';
+
+  @override
+  String get searchableText => 'Searchable text';
+
+  @override
+  String ocrFailed(String name) {
+    return 'Could not recognize the text of \"$name\".';
+  }
 }

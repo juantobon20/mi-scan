@@ -26,6 +26,19 @@ class SqliteDocumentRepository implements DocumentRepository {
   final DateTime Function() _clock;
   Future<void>? _sync;
 
+  static const _listColumns = [
+    'id',
+    'name',
+    'pdf_path',
+    'thumb_path',
+    'size_bytes',
+    'page_count',
+    'created_at',
+    'modified_at',
+    'folder_id',
+    '(content_text IS NOT NULL AND length(content_text) > 0) AS has_text',
+  ];
+
   Future<Database> _ready() async {
     final db = await _database.database;
     await (_sync ??= _reconcile(db));
@@ -71,11 +84,13 @@ class SqliteDocumentRepository implements DocumentRepository {
       args.add(query.folderId);
     }
     for (final token in searchTokens(query.text)) {
-      where.add("search_name LIKE ? ESCAPE '\\'");
-      args.add('%${_escapeLike(token)}%');
+      where.add("(search_name LIKE ? ESCAPE '\\' OR search_content LIKE ? ESCAPE '\\')");
+      final pattern = '%${_escapeLike(token)}%';
+      args.addAll([pattern, pattern]);
     }
     final rows = await db.query(
       'documents',
+      columns: _listColumns,
       where: where.isEmpty ? null : where.join(' AND '),
       whereArgs: args,
       orderBy: 'modified_at DESC, name COLLATE NOCASE',
@@ -156,6 +171,24 @@ class SqliteDocumentRepository implements DocumentRepository {
     await _files.delete(doc.pdfPath);
   }
 
+  @override
+  Future<void> saveText(String documentId, String text) async {
+    final db = await _ready();
+    await db.update(
+      'documents',
+      {'content_text': text, 'search_content': normalizeSearchText(text)},
+      where: 'id = ?',
+      whereArgs: [documentId],
+    );
+  }
+
+  @override
+  Future<String?> getText(String documentId) async {
+    final db = await _ready();
+    final rows = await db.query('documents', columns: ['content_text'], where: 'id = ?', whereArgs: [documentId]);
+    return rows.isEmpty ? null : rows.first['content_text'] as String?;
+  }
+
   ScannedDocument _fromRow(Map<String, Object?> row) {
     final thumb = row['thumb_path'] as String?;
     return ScannedDocument(
@@ -168,6 +201,7 @@ class SqliteDocumentRepository implements DocumentRepository {
       createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at']! as int),
       modified: DateTime.fromMillisecondsSinceEpoch(row['modified_at']! as int),
       folderId: row['folder_id'] as String?,
+      hasText: row['has_text'] == 1,
     );
   }
 

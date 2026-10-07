@@ -72,5 +72,12 @@
   "menuMove": "Mover a carpeta",
   "moveTitle": "Mover a",
   "moveNoFolder": "Sin carpeta",
-  "genericError": "Algo salió mal: {error}"
+  "genericError": "Algo salió mal: {error}",
+  "menuViewText": "Ver texto",
+  "textCopy": "Copiar texto",
+  "textCopied": "Texto copiado",
+  "textEmpty": "No se encontró texto en este documento.",
+  "ocrRecognizing": "Reconociendo texto...",
+  "searchableText": "Texto buscable",
+  "ocrFailed": "No se pudo reconocer el texto de \"{name}\"."
 }

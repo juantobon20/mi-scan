@@ -37,13 +37,14 @@ flutter test integration_test -d <id>   # requiere simulador/dispositivo
 
 ## Reglas para todo cambio
 
-1. **Solo inglés** en identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepción: todos los archivos `.md` (`README.md`, `CHANGELOG.md`, este archivo y la plantilla de PR) están en español; mantén cada archivo en un solo idioma.
+1. **Solo inglés** en identificadores, pruebas, mensajes de commit, títulos de PR, nombres de rama y workflows. `tool/check_english.dart` lo verifica. Excepciones: `lib/l10n/` (traducciones al español de la interfaz) y todos los archivos `.md` (`README.md`, `CHANGELOG.md`, este archivo y la plantilla de PR) están en español; mantén cada archivo en un solo idioma.
 2. **Sin comentarios en el código.** Documenta el comportamiento y los contratos en `README.md` (ver "Contratos importantes"). Prefiere nombres claros a las explicaciones.
 3. **Actualiza `CHANGELOG.md`** bajo `## [Sin publicar]` en todo cambio de archivos o recurso nuevo, incluido el trabajo hecho por IA. El hook de pre-commit y CI fallan si no lo haces.
 4. **Agrega o actualiza pruebas** junto con el cambio. Pon los dobles de prueba en `test/helpers/fakes.dart`; usa `mocktail` solo para verificar interacciones.
 5. **Respeta la regla de dependencia**: el dominio nunca importa `data`, `presentation` ni Flutter; presentation depende de interfaces del dominio.
 6. **Actualiza `README.md`** cuando cambien la arquitectura, los contratos o los workflows, y este archivo cuando su contenido quede desactualizado.
-7. **Los lints son estrictos**: imports sin usar, orden incorrecto de directivas y similares son errores. Comillas simples, sin `print`.
+7. **Textos visibles solo vía localización**: agrega la clave en `lib/l10n/app_en.arb` y `app_es.arb`, ejecuta `flutter gen-l10n`, commitea los archivos generados y usa `context.l10n`. Nunca escribas textos de UI en los widgets. Con idioma distinto de `es` la app usa inglés.
+8. **Los lints son estrictos**: imports sin usar, orden incorrecto de directivas y similares son errores. Comillas simples, sin `print`.
 
 ## Convenciones de git
 

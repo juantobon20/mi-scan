@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/di/service_locator.dart';
+import 'core/l10n/l10n.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/home/home_controller.dart';
 import 'presentation/home/home_screen.dart';
@@ -11,7 +12,9 @@ class MiScanApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Mi Scan',
+        onGenerateTitle: (context) => context.l10n.appName,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,

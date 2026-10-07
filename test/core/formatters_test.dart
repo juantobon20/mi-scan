@@ -1,17 +1,30 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:mi_scan/core/utils/formatters.dart';
-import 'package:mi_scan/domain/entities/scan_filter.dart';
 
 void main() {
+  setUpAll(() async {
+    await initializeDateFormatting('en');
+    await initializeDateFormatting('es');
+  });
+
   group('formatDocSubtitle', () {
-    test('formats date with zero padding and size in KB', () {
-      expect(formatDocSubtitle(DateTime(2026, 3, 5, 9, 7), 2048), '05/03/2026 09:07 · 2 KB');
+    test('formats the date for English and the size in KB', () {
+      expect(formatDocSubtitle(DateTime(2026, 3, 5, 9, 7), 2048), '3/5/2026 09:07 · 2 KB');
+    });
+
+    test('formats the date for Spanish', () {
+      expect(formatDocSubtitle(DateTime(2026, 3, 5, 9, 7), 2048, locale: 'es'), '5/3/2026 9:07 · 2 KB');
     });
 
     test('switches to MB above 1024 KB', () {
-      expect(formatDocSubtitle(DateTime(2026, 12, 25, 18, 30), 3 * 1024 * 1024), '25/12/2026 18:30 · 3.0 MB');
+      expect(formatDocSubtitle(DateTime(2026, 12, 25, 18, 30), 3 * 1024 * 1024), contains('3.0 MB'));
+    });
+
+    test('uses the locale decimal separator for MB', () {
+      expect(formatDocSubtitle(DateTime(2026, 12, 25, 18, 30), 3 * 1024 * 1024, locale: 'es'), contains('3,0 MB'));
     });
 
     test('exactly 1024 KB is shown in KB', () {
@@ -19,8 +32,8 @@ void main() {
     });
   });
 
-  test('defaultScanName', () {
-    expect(defaultScanName(DateTime(2026, 3, 5, 9, 7)), 'Scan 2026-03-05 09.07');
+  test('formatScanTimestamp', () {
+    expect(formatScanTimestamp(DateTime(2026, 3, 5, 9, 7)), '2026-03-05 09.07');
   });
 
   group('sanitizeFileName', () {
@@ -46,9 +59,5 @@ void main() {
     final f = File('${Directory.systemTemp.path}/silent_${DateTime.now().microsecondsSinceEpoch}')..writeAsStringSync('x');
     silentDelete(f.path);
     expect(f.existsSync(), isFalse);
-  });
-
-  test('ScanFilter exposes display labels', () {
-    expect(ScanFilter.values.map((f) => f.label), ['Original', 'Enhanced', 'Grayscale', 'B&W']);
   });
 }

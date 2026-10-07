@@ -13,6 +13,7 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 - Generación de **PDF** (A4, vertical u horizontal según la imagen) con miniatura.
 - Lista de documentos: compartir, renombrar (se resuelven colisiones de nombre) y eliminar.
 - Tema claro/oscuro Material 3.
+- Interfaz en **inglés y español** según el idioma del dispositivo (inglés por defecto).
 
 ## Stack
 
@@ -25,6 +26,7 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 | Compartir | `share_plus` |
 | Almacenamiento | `path_provider`, `path` |
 | Inyección de dependencias | `get_it` |
+| Localización | `flutter_localizations`, `intl` (`flutter gen-l10n`) |
 | Pruebas | `flutter_test`, `mocktail`, `integration_test` |
 
 Manejo de estado: `ChangeNotifier` + `ListenableBuilder` (sin librería adicional; suficiente para el tamaño de la app).
@@ -47,6 +49,7 @@ lib/
 ├── app.dart                      # MaterialApp, temas, pantalla inicial
 ├── core/
 │   ├── di/service_locator.dart   # registro de dependencias (get_it)
+│   ├── l10n/l10n.dart            # extensión context.l10n
 │   ├── theme/app_theme.dart
 │   └── utils/formatters.dart     # formato de fecha/tamaño, nombres de archivo, silentDelete
 ├── domain/                       # Dart puro, sin Flutter ni plugins
@@ -128,7 +131,7 @@ Las clases reciben sus dependencias **por constructor** y dependen de interfaces
 ## Pruebas
 
 ```bash
-flutter test                                        # pruebas unitarias + de widgets (107 pruebas)
+flutter test                                        # pruebas unitarias + de widgets (124 pruebas)
 flutter test integration_test -d <id-dispositivo>   # integración en simulador/dispositivo
 flutter test --coverage
 ```
@@ -139,11 +142,43 @@ flutter test --coverage
 | Unitarias de datos | `FileDocumentRepository` contra un directorio temporal real: crear, listar, renombrar, eliminar, colisiones |
 | Unitarias de presentación | `ScanSession`, `HomeController`, `downsampleToGray` (YUV/BGRA, `bytesPerRow`), formateadores, grafo de DI |
 | Widgets | `HomeScreen` (vacío, carga, error/reintento, renombrar, eliminar, compartir), `ReviewScreen`, `CropScreen` (filtros, guardar/agregar/cancelar, lote, arrastre), `QuadPainter` |
+| Localización | Claves y placeholders idénticos en los ARB, plurales, resolución de idioma (`es`, `es-MX`, idiomas no soportados → inglés) y pantallas en español |
 | Integración | Flujo completo con el árbol real de widgets y el contenedor de DI en un simulador iOS: listar → renombrar → compartir → eliminar; abrir y cerrar el escáner |
 
 Los dobles de prueba están en `test/helpers/fakes.dart` (repositorio en memoria, procesador de imágenes, servicio de compartir, etc.).
 
 **Cobertura:** ~56 % de las líneas en total; ~95 % en dominio, repositorio, controladores y sesión. `OpenCvImageProcessor`, `GalleryPickerScreen` y la mayor parte de `ScannerScreen` no están cubiertos porque dependen de OpenCV nativo, `photo_manager` y la cámara real (ver limitaciones).
+
+## Idiomas (localización)
+
+La app está disponible en **inglés** y **español**, con `flutter gen-l10n` y archivos ARB:
+
+- Si el idioma del dispositivo es español (`es`, incluidas variantes como `es-MX` o `es-CO`), la app se muestra en español.
+- Con cualquier otro idioma (francés, portugués, etc.) se muestra en **inglés**, que es el idioma principal y el de respaldo.
+- Cambia con el idioma del sistema; no hay selector dentro de la app.
+
+| Archivo | Rol |
+|---|---|
+| `l10n.yaml` | Configuración del generador |
+| `lib/l10n/app_en.arb` | Plantilla: textos en inglés |
+| `lib/l10n/app_es.arb` | Traducción al español |
+| `lib/l10n/app_localizations*.dart` | Código generado (se versiona; no se edita a mano) |
+| `lib/core/l10n/l10n.dart` | Extensión `context.l10n` para usar los textos |
+| `ios/Runner/Info.plist` | `CFBundleLocalizations` con `en` y `es`; sin esto iOS no entrega el español a la app |
+
+**Cómo agregar o cambiar un texto:**
+
+1. Agrega la clave en `app_en.arb` y en `app_es.arb` (mismas claves y mismos placeholders; para plurales usa la sintaxis ICU, por ejemplo `{count, plural, =1{1 page} other{{count} pages}}`).
+2. Ejecuta `flutter gen-l10n` (también lo hacen `flutter run` y `flutter test`) y commitea los archivos generados.
+3. En el código usa `context.l10n.miClave`; nunca escribas textos visibles directamente en los widgets.
+
+**Reglas y controles:**
+
+- El dominio no conoce la localización: `ScanFilter` no tiene etiqueta; el texto se resuelve en presentación con `ScanFilterLabel` (`presentation/widgets/scan_filter_label.dart`).
+- Las fechas y los decimales de `formatDocSubtitle` usan el idioma activo (`3/5/2026` en inglés, `5/3/2026` en español).
+- `tool/check_english.dart` no revisa `lib/l10n/`, porque ahí es legítimo el español; el resto del código sigue solo en inglés.
+- `test/presentation/localization_test.dart` comprueba que ambos ARB tengan las mismas claves y placeholders, que los plurales funcionen, y que un dispositivo en `es`/`es-MX` muestre español y uno en `fr`, `pt`, `de` o `ja` muestre inglés.
+- El job `CI` falla si los archivos generados no están al día con los ARB.
 
 ## Ejecución
 
@@ -371,7 +406,7 @@ Cumplimiento:
 
 ## Convenciones
 
-- Todo el código, identificadores, textos de la interfaz, pruebas, mensajes de commit, títulos de PR y workflows están en inglés. Toda la documentación (`*.md`: `README.md`, `CHANGELOG.md`, `CLAUDE.md` y la plantilla de PR) está en español.
+- Todo el código, identificadores, pruebas, mensajes de commit, títulos de PR y workflows están en inglés. Los textos de la interfaz se escriben en `lib/l10n/app_en.arb` (inglés) y se traducen en `lib/l10n/app_es.arb`; ese es el único código con español. Toda la documentación (`*.md`: `README.md`, `CHANGELOG.md`, `CLAUDE.md` y la plantilla de PR) está en español.
 - Sin comentarios en el código: el comportamiento y los contratos se documentan en este README.
 - `CLAUDE.md` contiene el contexto y las reglas para asistentes de IA; mantenlo sincronizado con la arquitectura.
 
@@ -379,6 +414,6 @@ Cumplimiento:
 
 - `ScannerScreen` y `GalleryPickerScreen` usan `camera` y `photo_manager` directamente. Siguiente paso: abstraerlos (`CameraService`, `GalleryService`) para poder probarlos con dobles.
 - `OpenCvImageProcessor` no tiene pruebas automatizadas; se podrían agregar pruebas de integración en dispositivo con imágenes de muestra.
-- Los textos de la interfaz están escritos directamente en el código; falta localización (`flutter gen-l10n`).
+- Solo hay dos idiomas (inglés y español) y no existe un selector de idioma dentro de la app.
 - No hay persistencia de metadatos más allá del sistema de archivos (sin búsqueda ni etiquetas).
 - No están configurados la firma de release, la distribución en iOS ni el versionado automático.

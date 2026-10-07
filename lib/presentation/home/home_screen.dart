@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/scanned_document.dart';
@@ -41,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _rename(ScannedDocument d) async {
-    final name = await showNameDialog(context, title: 'Rename', initial: d.name);
+    final name = await showNameDialog(context, title: context.l10n.renameTitle, initial: d.name);
     if (name != null) await ctrl.rename(d, name);
   }
 
@@ -49,11 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Delete document?'),
+        title: Text(context.l10n.deleteDocumentTitle),
         content: Text(d.name),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.actionCancel)),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.actionDelete)),
         ],
       ),
     );
@@ -62,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Recent')),
+        appBar: AppBar(title: Text(context.l10n.homeTitle)),
         body: ListenableBuilder(listenable: ctrl, builder: (context, _) => _body()),
         floatingActionButton: FloatingActionButton(
           key: const Key('scan_fab'),
@@ -79,18 +80,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (ctrl.error != null && docs.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Could not load documents'),
+          Text(context.l10n.homeLoadError),
           const SizedBox(height: 12),
-          FilledButton(onPressed: ctrl.load, child: const Text('Retry')),
+          FilledButton(onPressed: ctrl.load, child: Text(context.l10n.actionRetry)),
         ]),
       );
     }
     if (docs.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('You have no documents yet.\nTap the camera to scan your first one.',
-              textAlign: TextAlign.center),
+          padding: const EdgeInsets.all(32),
+          child: Text(context.l10n.homeEmpty, textAlign: TextAlign.center),
         ),
       );
     }
@@ -127,7 +127,7 @@ class _DocTile extends StatelessWidget {
         ),
       ),
       title: Text(doc.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(formatDocSubtitle(doc.modified, doc.sizeBytes)),
+      subtitle: Text(formatDocSubtitle(doc.modified, doc.sizeBytes, locale: Localizations.localeOf(context).toString())),
       onTap: onShare,
       trailing: PopupMenuButton<String>(
         onSelected: (v) => switch (v) {
@@ -135,10 +135,10 @@ class _DocTile extends StatelessWidget {
           'rename' => onRename(),
           _ => onDelete(),
         },
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'share', child: Text('Share')),
-          PopupMenuItem(value: 'rename', child: Text('Rename')),
-          PopupMenuItem(value: 'delete', child: Text('Delete')),
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'share', child: Text(context.l10n.menuShare)),
+          PopupMenuItem(value: 'rename', child: Text(context.l10n.menuRename)),
+          PopupMenuItem(value: 'delete', child: Text(context.l10n.menuDelete)),
         ],
       ),
     );

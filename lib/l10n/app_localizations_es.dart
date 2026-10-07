@@ -198,26 +198,6 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get lensWide => 'Normal';
-
-  @override
-  String get lensUltraWide => 'Ultra gran angular';
-
-  @override
-  String get lensTelephoto => 'Teleobjetivo';
-
-  @override
-  String get lensFront => 'Frontal';
-
-  @override
-  String get lensExternal => 'Externa';
-
-  @override
-  String lensNumbered(int number) {
-    return 'Cámara $number';
-  }
-
-  @override
   String get flashTooltip => 'Flash';
 
   @override

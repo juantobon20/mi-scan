@@ -404,42 +404,6 @@ abstract class AppLocalizations {
   /// **'Add ({count})'**
   String galleryAdd(int count);
 
-  /// No description provided for @lensWide.
-  ///
-  /// In en, this message translates to:
-  /// **'Wide'**
-  String get lensWide;
-
-  /// No description provided for @lensUltraWide.
-  ///
-  /// In en, this message translates to:
-  /// **'Ultra wide'**
-  String get lensUltraWide;
-
-  /// No description provided for @lensTelephoto.
-  ///
-  /// In en, this message translates to:
-  /// **'Telephoto'**
-  String get lensTelephoto;
-
-  /// No description provided for @lensFront.
-  ///
-  /// In en, this message translates to:
-  /// **'Front'**
-  String get lensFront;
-
-  /// No description provided for @lensExternal.
-  ///
-  /// In en, this message translates to:
-  /// **'External'**
-  String get lensExternal;
-
-  /// No description provided for @lensNumbered.
-  ///
-  /// In en, this message translates to:
-  /// **'Camera {number}'**
-  String lensNumbered(int number);
-
   /// No description provided for @flashTooltip.
   ///
   /// In en, this message translates to:

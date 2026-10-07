@@ -38,7 +38,7 @@ void main() {
   });
 
   group('initialize', () {
-    test('lists all cameras and opens the main back camera', () async {
+    test('lists the cameras and opens the main back camera', () async {
       await controller.initialize();
       expect(controller.cameras, [front, ultra, wide, tele]);
       expect(controller.selectedCamera, wide);
@@ -88,41 +88,176 @@ void main() {
     });
   });
 
-  group('lenses', () {
-    test('switching camera releases the previous one and opens the new one', () async {
+  group('camera choice', () {
+    test('never opens the front camera when a back camera exists', () async {
       await controller.initialize();
-      await controller.selectCamera(ultra);
-      expect(controller.selectedCamera, ultra);
-      expect(service.opened.first.disposed, isTrue);
-      expect(service.opened.last.info, ultra);
-      expect(service.opened, hasLength(2));
+      expect(service.opened.map((s) => s.info.facing), everyElement(CameraFacing.back));
     });
 
-    test('selecting the active camera does nothing', () async {
+    test('opens the front camera only when it is the only one', () async {
+      service = FakeCameraService(cameras: [front]);
+      controller = build(service);
       await controller.initialize();
-      await controller.selectCamera(wide);
-      expect(service.opened, hasLength(1));
+      expect(controller.selectedCamera, front);
     });
 
-    test('flash, torch and mode survive a camera change', () async {
+    test('flash, torch and mode are kept on the opened camera', () async {
       await controller.initialize();
       await controller.cycleFlash();
       await controller.toggleTorch();
-      await controller.selectCamera(tele);
-      final session = service.opened.last;
-      expect(session.flash, FlashSetting.auto);
-      expect(session.torch, isTrue);
+      expect(service.opened.single.flash, FlashSetting.auto);
+      expect(service.opened.single.torch, isTrue);
+    });
+  });
+
+  group('logical multi-camera (the phone switches lenses by itself)', () {
+    setUp(() {
+      service = FakeCameraService(
+        cameras: [front, ultra, wide, tele],
+        zoomRanges: {'wide': const ZoomRange(0.6, 10), 'ultra': const ZoomRange(1, 8), 'tele': const ZoomRange(1, 8)},
+      );
+      controller = build(service);
     });
 
-    test('zoom is reset to 1x when changing camera', () async {
+    test('exposes the whole zoom range of the main camera', () async {
       await controller.initialize();
-      await controller.setZoom(4);
-      await controller.selectCamera(ultra);
-      expect(controller.zoom, 1);
+      expect(controller.usesVirtualLenses, isFalse);
+      expect(controller.zoomRange.min, 0.6);
+      expect(controller.zoomRange.max, 10);
+    });
+
+    test('zooming out below 1x does not open another camera', () async {
+      await controller.initialize();
+      await controller.setZoom(0.6);
+      await controller.setZoom(5);
+      expect(service.opened, hasLength(1));
+      expect(service.opened.single.zoom, 5);
+    });
+  });
+
+  group('separate lenses (the app switches lenses while zooming)', () {
+    setUp(() {
+      service = FakeCameraService(cameras: [front, ultra, wide, tele]);
+      controller = build(service);
+    });
+
+    test('combines the lenses into one zoom range from 0.5x', () async {
+      await controller.initialize();
+      expect(controller.usesVirtualLenses, isTrue);
+      expect(controller.zoomRange.min, 0.5);
+      expect(controller.zoomRange.max, 8);
+    });
+
+    test('without an ultra wide lens the range starts at 1x', () async {
+      service = FakeCameraService(cameras: [wide, tele]);
+      controller = build(service);
+      await controller.initialize();
+      expect(controller.zoomRange.min, 1);
+    });
+
+    test('a single lens uses plain digital zoom', () async {
+      service = FakeCameraService(cameras: [wide]);
+      controller = build(service);
+      await controller.initialize();
+      expect(controller.usesVirtualLenses, isFalse);
+      await controller.setZoom(3);
+      expect(service.opened, hasLength(1));
+    });
+
+    test('zooming out below 1x switches to the ultra wide lens', () async {
+      await controller.initialize();
+      await controller.setZoom(0.6);
+      expect(controller.selectedCamera, ultra);
+      expect(service.opened.first.disposed, isTrue);
+      expect(service.opened.last.zoom, closeTo(1.2, 1e-9));
+      expect(controller.zoom, 0.6);
+    });
+
+    test('zooming back to 1x returns to the main lens', () async {
+      await controller.initialize();
+      await controller.setZoom(0.6);
+      await controller.setZoom(1);
+      expect(controller.selectedCamera, wide);
+      expect(service.opened.last.info, wide);
+      expect(service.opened.last.zoom, 1);
+    });
+
+    test('zooming in past 2x switches to the telephoto lens', () async {
+      await controller.initialize();
+      await controller.setZoom(2.5);
+      expect(controller.selectedCamera, tele);
+      expect(service.opened.last.zoom, closeTo(1.25, 1e-9));
+    });
+
+    test('between 1x and 2x the main lens keeps zooming digitally', () async {
+      await controller.initialize();
+      await controller.setZoom(1.5);
+      expect(controller.selectedCamera, wide);
+      expect(service.opened, hasLength(1));
+      expect(service.opened.single.zoom, 1.5);
+    });
+
+    test('has hysteresis so the lens does not flap around 1x', () async {
+      await controller.initialize();
+      await controller.setZoom(0.9);
+      expect(controller.selectedCamera, ultra);
+      await controller.setZoom(0.97);
+      expect(controller.selectedCamera, ultra);
+      expect(service.opened, hasLength(2));
+      await controller.setZoom(1.0);
+      expect(controller.selectedCamera, wide);
+    });
+
+    test('has hysteresis so the lens does not flap around 2x', () async {
+      await controller.initialize();
+      await controller.setZoom(2.0);
+      expect(controller.selectedCamera, tele);
+      await controller.setZoom(1.95);
+      expect(controller.selectedCamera, tele);
+      await controller.setZoom(1.8);
+      expect(controller.selectedCamera, wide);
+    });
+
+    test('keeps flash and torch when the lens changes', () async {
+      await controller.initialize();
+      await controller.cycleFlash();
+      await controller.toggleTorch();
+      await controller.setZoom(0.6);
+      expect(service.opened.last.flash, FlashSetting.auto);
+      expect(service.opened.last.torch, isTrue);
+    });
+
+    test('never opens the front camera', () async {
+      await controller.initialize();
+      await controller.setZoom(0.5);
+      await controller.setZoom(3);
+      expect(service.opened.map((s) => s.info), isNot(contains(front)));
+    });
+
+    test('the zoom requested during a lens change is not lost', () async {
+      await controller.initialize();
+      final first = controller.setZoom(0.6);
+      final second = controller.setZoom(0.7);
+      await Future.wait([first, second]);
+      expect(controller.zoom, 0.7);
+    });
+
+    test('suspend and resume keep the active lens and zoom', () async {
+      await controller.initialize();
+      await controller.setZoom(0.6);
+      await controller.suspend();
+      await controller.resume();
+      expect(controller.selectedCamera, ultra);
+      expect(controller.zoom, 0.6);
     });
   });
 
   group('zoom', () {
+    setUp(() {
+      service = FakeCameraService(cameras: [wide]);
+      controller = build(service);
+    });
+
     test('clamps to the range of the camera', () async {
       await controller.initialize();
       await controller.setZoom(100);
@@ -270,13 +405,12 @@ void main() {
   group('lifecycle', () {
     test('suspend releases the camera and resume reopens the same one', () async {
       await controller.initialize();
-      await controller.selectCamera(tele);
       await controller.suspend();
       expect(controller.camera, isNull);
       await controller.resume();
-      expect(controller.selectedCamera, tele);
+      expect(controller.selectedCamera, wide);
       expect(controller.camera, isNotNull);
-      expect(service.opened.last.info, tele);
+      expect(service.opened.last.info, wide);
     });
 
     test('resume before initialize behaves like initialize', () async {

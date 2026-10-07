@@ -177,7 +177,6 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
                 _TopBar(controller: ctrl, onClose: _close),
                 Expanded(child: Center(child: _preview(context))),
                 if (ctrl.isReady && ctrl.zoomRange.isZoomable) _ZoomSlider(controller: ctrl),
-                if (ctrl.cameras.length > 1) _LensSelector(controller: ctrl),
                 _ModeSelector(controller: ctrl),
                 _BottomBar(
                   controller: ctrl,
@@ -319,49 +318,6 @@ class _ZoomSlider extends StatelessWidget {
           ),
           const Icon(Icons.zoom_in, color: Colors.white70, size: 20),
         ],
-      ),
-    );
-  }
-}
-
-class _LensSelector extends StatelessWidget {
-  const _LensSelector({required this.controller});
-  final ScannerController controller;
-
-  String _label(AppLocalizations l10n, CameraInfo camera, int number) {
-    if (camera.facing == CameraFacing.front) return l10n.lensFront;
-    if (camera.facing == CameraFacing.external) return l10n.lensExternal;
-    return switch (camera.lens) {
-      CameraLens.wide => l10n.lensWide,
-      CameraLens.ultraWide => l10n.lensUltraWide,
-      CameraLens.telephoto => l10n.lensTelephoto,
-      CameraLens.unknown => l10n.lensNumbered(number),
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cameras = controller.cameras;
-    return SizedBox(
-      height: 44,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            for (var i = 0; i < cameras.length; i++)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ChoiceChip(
-                  key: Key('lens_${cameras[i].id}'),
-                  label: Text(_label(context.l10n, cameras[i], i + 1)),
-                  selected: controller.selectedCamera == cameras[i],
-                  selectedColor: kScanColor,
-                  onSelected: (_) => controller.selectCamera(cameras[i]),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

@@ -19,7 +19,6 @@ void main() {
   const ultra = CameraInfo(id: 'ultra', facing: CameraFacing.back, lens: CameraLens.ultraWide);
   const tele = CameraInfo(id: 'tele', facing: CameraFacing.back, lens: CameraLens.telephoto);
   const front = CameraInfo(id: 'front', facing: CameraFacing.front);
-  const unknownBack = CameraInfo(id: 'extra', facing: CameraFacing.back);
 
   late Directory dir;
   late File photo;
@@ -31,7 +30,7 @@ void main() {
 
   Future<void> open(WidgetTester tester, {FakeCameraService? service, Locale locale = const Locale('en')}) async {
     usePhoneScreen(tester);
-    camera = service ?? FakeCameraService(cameras: [wide, ultra, tele, front, unknownBack], photoPath: photo.path);
+    camera = service ?? FakeCameraService(cameras: [wide, ultra, tele, front], photoPath: photo.path);
     final factory = fakeScreenFactory(camera: camera);
     await tester.pumpWidget(
       localizedApp(
@@ -106,29 +105,44 @@ void main() {
   });
 
   group('lenses', () {
-    testWidgets('offers every camera of the phone', (tester) async {
+    testWidgets('shows no lens buttons and never the front camera', (tester) async {
       await open(tester);
-      for (final id in ['wide', 'ultra', 'tele', 'front', 'extra']) {
-        expect(find.byKey(Key('lens_$id')), findsOneWidget, reason: id);
+      expect(find.byType(ChoiceChip), findsNWidgets(2));
+      for (final id in ['wide', 'ultra', 'tele', 'front']) {
+        expect(find.byKey(Key('lens_$id')), findsNothing, reason: id);
       }
-      expect(find.text('Wide'), findsOneWidget);
-      expect(find.text('Ultra wide'), findsOneWidget);
-      expect(find.text('Telephoto'), findsOneWidget);
-      expect(find.text('Front'), findsOneWidget);
-      expect(find.text('Camera 5'), findsOneWidget);
+      expect(camera.opened.map((s) => s.info.facing), everyElement(CameraFacing.back));
     });
 
-    testWidgets('hides the selector when the phone has a single camera', (tester) async {
-      await open(tester, service: FakeCameraService(cameras: const [wide]));
-      expect(find.byKey(const Key('lens_wide')), findsNothing);
-    });
-
-    testWidgets('tapping a lens switches the camera', (tester) async {
+    testWidgets('zooming out switches to the ultra wide lens by itself', (tester) async {
       await open(tester);
-      await tester.tap(find.byKey(const Key('lens_ultra')));
+      await tester.drag(find.byKey(const Key('zoom_slider')), const Offset(-5000, 0));
       await tester.pumpAndSettle();
       expect(camera.opened.last.info, ultra);
-      expect(camera.opened.first.disposed, isTrue);
+      expect(find.text('0.5x'), findsOneWidget);
+    });
+
+    testWidgets('zooming in switches to the telephoto lens by itself', (tester) async {
+      await open(tester);
+      await tester.drag(find.byKey(const Key('zoom_slider')), const Offset(5000, 0));
+      await tester.pumpAndSettle();
+      expect(camera.opened.last.info, tele);
+      expect(find.text('8.0x'), findsOneWidget);
+    });
+
+    testWidgets('keeps a single camera when the phone merges its lenses', (tester) async {
+      await open(
+        tester,
+        service: FakeCameraService(
+          cameras: [wide, ultra, tele, front],
+          zoomRanges: {'wide': const ZoomRange(0.6, 10)},
+          photoPath: photo.path,
+        ),
+      );
+      await tester.drag(find.byKey(const Key('zoom_slider')), const Offset(-5000, 0));
+      await tester.pumpAndSettle();
+      expect(camera.opened, hasLength(1));
+      expect(find.text('0.6x'), findsOneWidget);
     });
   });
 
@@ -142,7 +156,7 @@ void main() {
       await open(tester);
       await tester.drag(find.byKey(const Key('zoom_slider')), const Offset(5000, 0));
       await tester.pumpAndSettle();
-      expect(camera.opened.single.zoom, 8);
+      expect(camera.opened.last.zoom, 4);
       expect(find.text('8.0x'), findsOneWidget);
     });
 
@@ -156,7 +170,7 @@ void main() {
       await first.up();
       await second.up();
       await tester.pumpAndSettle();
-      expect(camera.opened.single.zoom, greaterThan(1));
+      expect(camera.opened.last.zoom, greaterThan(1));
     });
   });
 

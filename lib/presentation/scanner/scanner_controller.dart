@@ -10,6 +10,9 @@ import 'scan_session.dart';
 
 enum ScanMode { single, batch }
 
+const double ultraWideFactor = 0.5;
+const double telephotoFactor = 2.0;
+
 class ScannerController extends ChangeNotifier {
   ScannerController({required this._cameraService, required this._session});
 
@@ -17,8 +20,14 @@ class ScannerController extends ChangeNotifier {
   final ScanSession _session;
 
   List<CameraInfo> _cameras = const [];
+  CameraInfo? _main;
+  CameraInfo? _ultraWide;
+  CameraInfo? _telephoto;
   CameraInfo? _selected;
   CameraSession? _camera;
+  ZoomRange _mainRange = const ZoomRange(1, 1);
+  bool _virtualLenses = false;
+  bool _switching = false;
   StreamSubscription<GrayFrame>? _frameSubscription;
   CameraAccessException? _problem;
   Quad? _quad;
@@ -33,6 +42,7 @@ class ScannerController extends ChangeNotifier {
 
   List<CameraInfo> get cameras => List.unmodifiable(_cameras);
   CameraInfo? get selectedCamera => _selected;
+  bool get usesVirtualLenses => _virtualLenses;
   CameraSession? get camera => _camera;
   CameraAccessException? get problem => _problem;
   Quad? get quad => _quad;
@@ -42,7 +52,10 @@ class ScannerController extends ChangeNotifier {
   bool get capturing => _capturing;
   ScanMode get mode => _mode;
   bool get isReady => _camera != null && _problem == null;
-  ZoomRange get zoomRange => _camera?.zoomRange ?? const ZoomRange(1, 1);
+  ZoomRange get zoomRange {
+    if (!_virtualLenses) return _camera?.zoomRange ?? const ZoomRange(1, 1);
+    return ZoomRange(_ultraWide == null ? _mainRange.min : ultraWideFactor, _mainRange.max);
+  }
 
   Future<void> initialize() async {
     try {
@@ -58,20 +71,26 @@ class ScannerController extends ChangeNotifier {
       _fail(const CameraAccessException(CameraFailure.unavailable));
       return;
     }
-    await _open(_defaultCamera());
+    await _openMain();
   }
 
-  CameraInfo _defaultCamera() {
-    final back = _cameras.where((c) => c.facing == CameraFacing.back);
-    return back.firstWhere((c) => c.lens == CameraLens.wide, orElse: () => back.isEmpty ? _cameras.first : back.first);
+  Future<void> _openMain() async {
+    final back = _cameras.where((c) => c.facing == CameraFacing.back).toList();
+    final usable = back.isEmpty ? [_cameras.first] : back;
+    final main = usable.firstWhere((c) => c.lens == CameraLens.wide, orElse: () => usable.first);
+    _main = main;
+    _ultraWide = usable.where((c) => c.lens == CameraLens.ultraWide && c != main).firstOrNull;
+    _telephoto = usable.where((c) => c.lens == CameraLens.telephoto && c != main).firstOrNull;
+    _virtualLenses = false;
+    _zoom = 1;
+    await _open(main, zoom: 1);
+    if (_camera == null) return;
+    _mainRange = _camera!.zoomRange;
+    _virtualLenses = _mainRange.min >= 1 && (_ultraWide != null || _telephoto != null);
+    _notify();
   }
 
-  Future<void> selectCamera(CameraInfo camera) async {
-    if (camera == _selected && _camera != null) return;
-    await _open(camera);
-  }
-
-  Future<void> _open(CameraInfo info) async {
+  Future<void> _open(CameraInfo info, {required double zoom}) async {
     await _release();
     _selected = info;
     _problem = null;
@@ -84,8 +103,7 @@ class ScannerController extends ChangeNotifier {
         return;
       }
       _camera = opened;
-      _zoom = opened.zoomRange.clamp(1);
-      await opened.setZoom(_zoom);
+      await opened.setZoom(opened.zoomRange.clamp(zoom / _factorOf(info)));
       await opened.setFlash(_flash);
       await opened.setTorch(_torch);
       _frameSubscription = opened.frames.listen(_onFrame);
@@ -98,6 +116,24 @@ class ScannerController extends ChangeNotifier {
       return;
     }
     _notify();
+  }
+
+  double _factorOf(CameraInfo info) {
+    if (!_virtualLenses) return 1;
+    if (info == _ultraWide) return ultraWideFactor;
+    if (info == _telephoto) return telephotoFactor;
+    return 1;
+  }
+
+  CameraInfo _lensFor(double zoom) {
+    final main = _main!;
+    if (!_virtualLenses) return main;
+    final current = _selected;
+    final ultra = _ultraWide;
+    if (ultra != null && (zoom < 0.95 || (current == ultra && zoom < 1.0))) return ultra;
+    final tele = _telephoto;
+    if (tele != null && (zoom >= telephotoFactor || (current == tele && zoom >= telephotoFactor - 0.1))) return tele;
+    return main;
   }
 
   Future<void> _release() async {
@@ -140,13 +176,30 @@ class ScannerController extends ChangeNotifier {
   }
 
   Future<void> setZoom(double zoom) async {
-    final camera = _camera;
-    if (camera == null) return;
-    final clamped = camera.zoomRange.clamp(zoom);
+    if (_main == null || (_camera == null && !_switching)) return;
+    final clamped = zoomRange.clamp(zoom);
     if (clamped == _zoom) return;
     _zoom = clamped;
     _notify();
-    await camera.setZoom(clamped);
+    if (_switching) return;
+    await _applyZoom();
+  }
+
+  Future<void> _applyZoom() async {
+    _switching = true;
+    try {
+      while (true) {
+        final wanted = _lensFor(_zoom);
+        if (wanted == _selected) break;
+        await _open(wanted, zoom: _zoom);
+        if (_camera == null) return;
+      }
+    } finally {
+      _switching = false;
+    }
+    final camera = _camera;
+    if (camera == null) return;
+    await camera.setZoom(camera.zoomRange.clamp(_zoom / _factorOf(_selected!)));
   }
 
   Future<void> cycleFlash() async {
@@ -211,7 +264,7 @@ class ScannerController extends ChangeNotifier {
   Future<void> resume() async {
     final info = _selected;
     if (info == null) return initialize();
-    if (_camera == null) await _open(info);
+    if (_camera == null) await _open(info, zoom: _zoom);
   }
 
   void _notify() {

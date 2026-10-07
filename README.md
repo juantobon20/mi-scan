@@ -8,7 +8,7 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 
 - Cámara con **detección de bordes en vivo** (Canny + contornos, ejecutada en un isolate).
 - **Zoom** (gesto de pellizco y deslizador), **flash** (apagado, automático, encendido) y **linterna**.
-- **Todas las cámaras del teléfono**: selector de lentes (gran angular, ultra gran angular, teleobjetivo, frontal y las que reporte el dispositivo).
+- **Cambio automático de lente al hacer zoom**, como la cámara original: ultra gran angular, principal y teleobjetivo, sin botones. Solo se usan las cámaras traseras (no hay cámara frontal).
 - **Modo lote**: captura varias páginas seguidas; cada una se recorta sola con el documento detectado y se guarda con "Listo".
 - Importación desde la **galería** con selección múltiple (HEIC se convierte a JPEG en iOS).
 - Editor de recorte con esquinas arrastrables, detección automática y **filtros**: Original, Enhanced, Grayscale, B&W (umbral adaptativo).
@@ -122,10 +122,11 @@ Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 | `saveSessionAsPdf` | Pide un nombre, muestra un diálogo de progreso y devuelve `null` si se cancela o falla (se muestra un snackbar). |
 | `showNameDialog` | Devuelve el texto ingresado, o `null` si se cancela. |
 | `GalleryPickerScreen` | Devuelve las rutas JPEG de las imágenes elegidas, en orden de selección. |
-| `CameraService` | `listCameras()` devuelve todas las cámaras del teléfono; `open(camera)` entrega una `CameraSession` o lanza `CameraAccessException` (`permissionDenied`, `unavailable`, `failed`). |
+| `CameraService` | `listCameras()` devuelve las cámaras del teléfono (el escáner solo usa las traseras); `open(camera)` entrega una `CameraSession` o lanza `CameraAccessException` (`permissionDenied`, `unavailable`, `failed`). |
 | `CameraSession` | Una cámara abierta: `frames` (cuadros en gris para detectar el documento, ~5 por segundo), `setZoom` (se ajusta a `zoomRange`), `setFlash`, `setTorch`, `takePicture` y `dispose`. La linterna tiene prioridad sobre el flash. |
 | `GalleryService` | `requestAccess`, `loadPage` (paginado), `thumbnail`, `exportJpeg` (siempre JPEG, también convierte HEIC) y `openSettings`. |
-| `ScannerController` | Estado del escáner: cámaras, lente elegida, zoom, flash, linterna, documento detectado (suavizado), modo y captura. Al cambiar de lente conserva flash y linterna y reinicia el zoom a 1x. |
+| `ScannerController` | Estado del escáner: zoom, flash, linterna, documento detectado (suavizado), modo y captura. Elige la cámara trasera principal y gestiona el cambio de lente según el zoom (ver abajo). |
+| Zoom y lentes | Si la cámara principal ya expone un rango que baja de 1x (multicámara lógica, por ejemplo 0,6x a 10x en un Galaxy S23), el teléfono cambia de lente solo y la app usa ese rango. Si los lentes se listan por separado, la app los combina en un único zoom: por debajo de 1x usa el ultra gran angular (factor 0,5x), de 1x a 2x el principal con zoom digital y desde 2x el teleobjetivo (factor 2x). Los cambios tienen histéresis (0,95x/1x y 1,9x/2x) para no alternar el lente al pellizcar; cada cambio reabre la cámara, conservando flash y linterna. |
 | `ScanMode` | `single` abre el editor de recorte tras cada foto; `batch` recorta sola con `ScanSession.autoCropPage` (filtro Original, documento detectado o la imagen completa) y no interrumpe la captura. |
 | `ScreenFactory` | Crea los controladores de escáner y galería y el constructor de la vista previa; se registra en el contenedor de DI y evita que las pantallas lo consulten. |
 | `CropResult` | La página recortada y si el usuario eligió guardar el PDF ahora. |
@@ -430,7 +431,7 @@ Cumplimiento:
 
 ## Limitaciones conocidas y próximos pasos
 
-- Las cámaras que se listan dependen de lo que reporte el plugin `camera` en cada teléfono; algunos fabricantes no exponen todos los lentes físicos.
+- Los factores 0,5x y 2x del cambio de lente en teléfonos con lentes separados son estimaciones: el plugin `camera` no expone las distancias focales, por lo que el encuadre puede dar un pequeño salto al cambiar. Solo se validó en un Galaxy S23 Ultra, que expone la multicámara lógica.
 - El modo lote usa siempre el filtro Original; no hay selector de filtro en la captura continua.
 - `OpenCvImageProcessor` no tiene pruebas automatizadas; se podrían agregar pruebas de integración en dispositivo con imágenes de muestra.
 - Solo hay dos idiomas (inglés y español) y no existe un selector de idioma dentro de la app.

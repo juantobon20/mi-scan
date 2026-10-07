@@ -205,10 +205,12 @@ class FakeCameraService implements CameraService {
     this.photoPath = '',
     this.listError,
     this.openError,
+    this.zoomRanges = const {},
   }) : cameras = cameras ?? const [CameraInfo(id: 'back-wide', facing: CameraFacing.back, lens: CameraLens.wide)];
 
   final List<CameraInfo> cameras;
   final String photoPath;
+  final Map<String, ZoomRange> zoomRanges;
   Object? listError;
   Object? openError;
   final opened = <FakeCameraSession>[];
@@ -224,7 +226,11 @@ class FakeCameraService implements CameraService {
   Future<CameraSession> open(CameraInfo camera) async {
     final error = openError;
     if (error != null) throw error;
-    final session = FakeCameraSession(camera, photoPath: photoPath);
+    final session = FakeCameraSession(
+      camera,
+      zoomRange: zoomRanges[camera.id] ?? const ZoomRange(1, 8),
+      photoPath: photoPath,
+    );
     opened.add(session);
     return session;
   }

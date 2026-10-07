@@ -36,6 +36,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - iOS: el iOS mínimo sube de 13.0 a 15.5 y compilar para iOS requiere CocoaPods, por ML Kit. Los pods de ML Kit no incluyen arm64 para simulador, así que la app ya no se puede ejecutar en simuladores de iOS 26 en Apple Silicon (sí en un iPhone real); las pruebas de integración se ejecutan en Android.
 - `DocumentRepository` incorpora `saveText` y `getText`, y `ScannedDocument` tiene `hasText`.
 - Al volver del escáner, las imágenes de la sesión se conservan hasta que termina el OCR en lugar de borrarse al instante.
+- El título de un PR debe ser exactamente el nombre de su rama (`feature/document-storage`, `bugfix/...`) en lugar de seguir Conventional Commits; los mensajes de commit mantienen su formato. `pr-validation.yml`, el README, `CLAUDE.md` y la plantilla de PR se actualizaron, y los PRs `develop → main` y `main → develop` pueden llevar cualquier título.
 - `DocumentRepository` ahora recibe un `DocumentQuery`, tiene `move` y los documentos tienen `id`, carpeta, número de páginas y fecha de creación; `FileDocumentRepository` fue reemplazado por los repositorios SQLite.
 - El escáner usa solo cámaras traseras: se quitó la cámara frontal.
 - La cámara y la galería están detrás de interfaces del dominio (`CameraService`, `CameraSession`, `GalleryService`) con implementaciones en `data`; `ScannerScreen` y `GalleryPickerScreen` usan `ScannerController` y `GalleryController`, creados por `ScreenFactory`.

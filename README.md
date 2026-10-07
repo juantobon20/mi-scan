@@ -259,13 +259,13 @@ Los hooks están en `.githooks/` y se activan con `git config core.hooksPath .gi
 
 | Workflow | Disparador | Qué hace |
 |---|---|---|
-| `pr-validation.yml` | PR a `develop` o `main` | Valida nombre de rama, título del PR, texto solo ASCII y changelog; luego ejecuta analizador y verificación de inglés |
+| `pr-validation.yml` | PR a `develop` o `main` | Valida nombre de rama, que el título del PR sea el nombre de la rama, texto solo ASCII y changelog; luego ejecuta analizador y verificación de inglés |
 | `ci.yml` | Push (merge) a `develop`, PRs | Analizador, verificación de inglés, `flutter test --coverage`, sube `lcov.info` |
 | `firebase-distribution.yml` | Ejecución manual o tag `v*` | Control de calidad, compilación del APK release y subida a Firebase App Distribution |
 
 Los nombres de rama y los destinos de cada tipo de rama están en [Estrategia de ramas](#estrategia-de-ramas).
 
-Los títulos de PR y los mensajes de commit siguen la [convención de títulos](#convención-de-títulos-de-pr-y-commits).
+El título de cada PR es el nombre de su rama y los mensajes de commit siguen Conventional Commits (ver [convención de títulos](#convención-de-títulos-de-pr-y-commits)).
 
 **Publicar una versión en Firebase App Distribution:** la app de Firebase, el grupo de testers `testers` y los secretos del environment `release` ya están configurados (ver [Firma de release](#firma-de-release-android)). Para publicar, ejecuta el workflow manualmente desde `main` (eligiendo grupos y notas de versión) o sube un tag desde `main`, por ejemplo `v1.0.0`. El job espera tu aprobación del environment `release` antes de usar los secretos.
 
@@ -277,7 +277,30 @@ Notas: la firma de release se describe en la sección siguiente. La distribució
 
 ## Convención de títulos de PR y commits
 
-Los títulos de PR y la primera línea de cada commit usan **Conventional Commits**, siempre en inglés y solo con caracteres ASCII:
+### Título del PR: el nombre de la rama
+
+El título de un PR es **exactamente el nombre de su rama**, con su tipo incluido:
+
+| Rama | Título del PR |
+|---|---|
+| `feature/document-storage` | `feature/document-storage` |
+| `bugfix/camera-permission-crash` | `bugfix/camera-permission-crash` |
+| `refactor/home-controller` | `refactor/home-controller` |
+| `docs/update-readme` | `docs/update-readme` |
+| `release/1.2.0` | `release/1.2.0` |
+| `hotfix/pdf-crash` | `hotfix/pdf-crash` |
+
+El prefijo ya dice de qué se trata: `feature/` funcionalidad nueva, `bugfix/` corrección, `hotfix/` corrección urgente en producción, `refactor/`, `test/`, `docs/`, `chore/`, `ci/` y `release/` (ver [Estrategia de ramas](#estrategia-de-ramas)).
+
+- La comparación es exacta (mayúsculas, guiones y barra). `PR validation` falla si el título no coincide.
+- Solo caracteres ASCII, igual que el nombre de la rama.
+- Excepción: los PRs de promoción y de back-merge (`develop → main` y `main → develop`) pueden llevar cualquier título no vacío, por ejemplo `Sync main into develop`.
+- GitHub rellena el título con una versión "bonita" del nombre de la rama (`Feature/document storage`). **Cámbialo antes de crear el PR** y pega el nombre exacto; también puedes copiarlo con `git branch --show-current`.
+- Como el título es el nombre de la rama, con squash merge el commit en `develop` también se llamará `feature/document-storage (#12)`. El detalle del cambio va en la descripción del PR y en `CHANGELOG.md`.
+
+### Mensajes de commit: Conventional Commits
+
+La primera línea de cada commit sí usa **Conventional Commits**, siempre en inglés y solo con caracteres ASCII:
 
 ```
 <type>(<scope>): <description>
@@ -303,29 +326,25 @@ Reglas:
 
 - El tipo va en minúsculas; el alcance, en minúsculas con letras, números o guiones (`scanner`, `android`, `crop-screen`).
 - Después de los dos puntos va un espacio y una descripción de al menos 3 caracteres, en imperativo y sin punto final: `add flash toggle`, no `added` ni `Se agregó`.
-- Con squash merge, el título del PR pasa a ser el mensaje del commit en `develop`.
 
 ```
 feat(scanner): add flash toggle          ✔ válido
 fix(crop): keep corners inside the image ✔ válido
 chore(release): prepare version 1.0.0    ✔ válido
 feat(android)!: require minSdk 26        ✔ válido
-Release/1.0.0                            ✘ título automático de GitHub
 Add flash toggle                         ✘ falta el tipo
 feat: Agregar flash                      ✘ no está en inglés
 feat(Scanner): add flash                 ✘ alcance con mayúscula
 feat(scanner):add flash                  ✘ falta el espacio
 ```
 
-> GitHub rellena el título del PR con el nombre de la rama. **Cámbialo antes de crear el PR**: `PR validation` lo rechaza si no cumple el patrón.
-
-El patrón exacto que valida el workflow es:
+El patrón exacto que valida el hook `commit-msg` es:
 
 ```
 ^(feat|fix|chore|docs|refactor|test|ci|perf|build|style|revert)(\([a-z0-9-]+\))?!?: .{3,}$
 ```
 
-El hook `commit-msg` aplica la misma regla a los commits locales. Los nombres de rama usan `<tipo>/<kebab-case>` (ver [Estrategia de ramas](#estrategia-de-ramas)).
+Los nombres de rama usan `<tipo>/<kebab-case>` (ver [Estrategia de ramas](#estrategia-de-ramas)).
 
 ## Firma de release (Android)
 
@@ -387,8 +406,8 @@ Nombre de rama: `<tipo>/<kebab-case>`, por ejemplo `feature/add-flash-toggle`. L
 
 1. `git switch develop && git pull`, luego `git switch -c feature/add-flash-toggle`.
 2. Commits con Conventional Commits y entrada en `CHANGELOG.md`.
-3. PR hacia `develop` con título `feat(scanner): add flash toggle`; esperar los checks.
-4. **Squash merge**: el título del PR queda como único commit en `develop`, lo que mantiene el historial lineal y legible. Se borra la rama.
+3. PR hacia `develop` con título `feature/add-flash-toggle` (el nombre exacto de la rama); esperar los checks.
+4. **Squash merge**: el PR queda como un único commit en `develop`, lo que mantiene el historial lineal. Se borra la rama.
 
 **Publicar una versión**
 

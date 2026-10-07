@@ -67,7 +67,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       final path = await ctrl.capture();
       if (!mounted) return;
       if (ctrl.mode == ScanMode.batch) {
-        await session.autoCropPage(path);
+        await session.addShot(path);
         silentDelete(path);
       } else {
         final result = await _importAndCrop(path);
@@ -92,19 +92,46 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     return false;
   }
 
-  Future<CropResult?> _importAndCrop(String sourcePath, {int index = 0, int total = 1}) async {
-    final tmp = await session.importSource(sourcePath);
+  Future<CropResult?> _cropFile(String path, {int index = 0, int total = 1}) async {
     if (!mounted) return null;
     final result = await Navigator.push<CropResult>(
       context,
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => CropScreen(session: session, imagePath: tmp, index: index, total: total),
+        builder: (_) => CropScreen(session: session, imagePath: path, index: index, total: total),
       ),
     );
-    silentDelete(tmp);
     if (result != null) session.add(result.page);
     return result;
+  }
+
+  Future<CropResult?> _importAndCrop(String sourcePath, {int index = 0, int total = 1}) async {
+    final tmp = await session.importSource(sourcePath);
+    final result = await _cropFile(tmp, index: index, total: total);
+    silentDelete(tmp);
+    return result;
+  }
+
+  Future<bool> _cropQueue(List<String> sources, {required bool alreadyImported}) async {
+    for (var i = 0; i < sources.length; i++) {
+      if (!mounted) return true;
+      final result = alreadyImported
+          ? await _cropFile(sources[i], index: i, total: sources.length)
+          : await _importAndCrop(sources[i], index: i, total: sources.length);
+      if (alreadyImported) silentDelete(sources[i]);
+      if (result != null && result.save && mounted && await _saveAndClose()) return true;
+    }
+    return false;
+  }
+
+  Future<void> _finishBatch() async {
+    if (session.shots.isEmpty) {
+      await _saveAndClose();
+      return;
+    }
+    await ctrl.pauseFrames();
+    final closed = await _cropQueue(session.takeShots(), alreadyImported: true);
+    if (!closed && mounted) await ctrl.resumeFrames();
   }
 
   Future<void> _gallery() async {
@@ -116,20 +143,13 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
         builder: (_) => GalleryPickerScreen(controller: widget.factory.galleryController(session.dir)),
       ),
     );
-    for (var i = 0; paths != null && i < paths.length; i++) {
-      if (!mounted) return;
-      if (ctrl.mode == ScanMode.batch) {
-        await session.autoCropPage(paths[i]);
-        continue;
-      }
-      final result = await _importAndCrop(paths[i], index: i, total: paths.length);
-      if (result != null && result.save && mounted && await _saveAndClose()) return;
-    }
+    if (paths != null && await _cropQueue(paths, alreadyImported: false)) return;
     paths?.forEach(silentDelete);
     await ctrl.resumeFrames();
   }
 
   Future<void> _review() async {
+    if (session.shots.isNotEmpty) return _finishBatch();
     await ctrl.pauseFrames();
     if (!mounted) return;
     final result = await Navigator.push<ScannedDocument>(
@@ -145,12 +165,12 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   }
 
   Future<void> _close() async {
-    if (session.pages.isNotEmpty) {
+    if (session.pendingCount > 0) {
       final ok = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
           title: Text(context.l10n.discardScanTitle),
-          content: Text(context.l10n.discardScanMessage(session.pages.length)),
+          content: Text(context.l10n.discardScanMessage(session.pendingCount)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.actionKeepScanning)),
             TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.actionDiscard)),
@@ -184,7 +204,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
                   onGallery: _gallery,
                   onCapture: _capture,
                   onReview: _review,
-                  onDone: _saveAndClose,
+                  onDone: _finishBatch,
                 ),
               ],
             ),
@@ -373,7 +393,10 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pages = session.pages;
+    final shots = session.shots;
     final batch = controller.mode == ScanMode.batch;
+    final count = session.pendingCount;
+    final last = shots.isNotEmpty ? ScanPage(shots.last, 0, 0) : (pages.isEmpty ? null : pages.last);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       child: Row(
@@ -396,12 +419,12 @@ class _BottomBar extends StatelessWidget {
               ),
             ),
           ),
-          if (pages.isEmpty)
+          if (last == null)
             const SizedBox(width: 64)
           else if (batch)
-            _DoneButton(count: pages.length, onDone: onDone, onReview: onReview, last: pages.last)
+            _DoneButton(count: count, onDone: onDone, onReview: onReview, last: last)
           else
-            _Thumb(page: pages.last, count: pages.length, onTap: onReview),
+            _Thumb(page: last, count: count, onTap: onReview),
         ],
       ),
     );

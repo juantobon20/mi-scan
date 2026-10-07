@@ -179,37 +179,46 @@ class _CropScreenState extends State<CropScreen> {
                           child: Text(widget.total > 1 ? context.l10n.actionSkip : context.l10n.actionCancel,
                               style: const TextStyle(color: Colors.white)),
                         ),
-                        const Spacer(),
-                        if (_busy)
-                          const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: kScanColor))
-                        else if (!isLast)
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(backgroundColor: kScanColor),
-                            onPressed: () => _accept(save: false),
-                            icon: const Icon(Icons.arrow_forward),
-                            label: Text(context.l10n.actionNext),
-                          )
-                        else ...[
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white54),
-                            ),
-                            onPressed: () => _accept(save: false),
-                            icon: const Icon(Icons.add),
-                            label: Text(context.l10n.actionAdd),
+                        Expanded(
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              if (_busy)
+                                const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: kScanColor),
+                                )
+                              else if (!isLast)
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(backgroundColor: kScanColor),
+                                  onPressed: () => _accept(save: false),
+                                  icon: const Icon(Icons.arrow_forward),
+                                  label: Text(context.l10n.actionNext),
+                                )
+                              else ...[
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white54),
+                                  ),
+                                  onPressed: () => _accept(save: false),
+                                  icon: const Icon(Icons.add),
+                                  label: Text(context.l10n.actionAdd),
+                                ),
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(backgroundColor: kScanColor),
+                                  onPressed: () => _accept(save: true),
+                                  icon: const Icon(Icons.picture_as_pdf),
+                                  label: Text(context.l10n.actionSave),
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(backgroundColor: kScanColor),
-                            onPressed: () => _accept(save: true),
-                            icon: const Icon(Icons.picture_as_pdf),
-                            label: Text(context.l10n.actionSave),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),

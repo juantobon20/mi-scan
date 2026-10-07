@@ -99,6 +99,17 @@ void main() {
     expect(find.byType(CropScreen), findsNothing);
   });
 
+  testWidgets('the action buttons fit on a narrow 360 dp phone even with Skip, Add and Save', (tester) async {
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await open(tester, index: 1, total: 2);
+    expect(find.text('Skip'), findsOneWidget);
+    expect(find.text('Add'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('with several images shows progress, "Next" and "Skip"', (tester) async {
     await open(tester, index: 0, total: 3);
     expect(find.text('Adjust edges (1/3)'), findsOneWidget);

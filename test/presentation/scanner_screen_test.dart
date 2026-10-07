@@ -207,15 +207,27 @@ void main() {
   });
 
   group('batch mode', () {
-    testWidgets('captures several pages without opening the crop editor', (tester) async {
-      await open(tester);
+    Future<void> settleCrop(WidgetTester tester) async {
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    Future<void> shoot(WidgetTester tester, int count) async {
       await tester.tap(find.byKey(const Key('mode_batch')));
       await tester.pump();
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < count; i++) {
         await tester.tap(find.byKey(const Key('shutter')));
         await tester.pumpAndSettle();
       }
-      expect(session.pages, hasLength(3));
+    }
+
+    testWidgets('captures several photos without opening the crop editor', (tester) async {
+      await open(tester);
+      await shoot(tester, 3);
+      expect(session.shots, hasLength(3));
+      expect(session.pages, isEmpty);
       expect(find.byType(CropScreen), findsNothing);
       expect(find.byKey(const Key('batch_done')), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
@@ -223,27 +235,80 @@ void main() {
 
     testWidgets('the camera keeps working after each shot', (tester) async {
       await open(tester);
-      await tester.tap(find.byKey(const Key('mode_batch')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('shutter')));
-      await tester.pumpAndSettle();
+      await shoot(tester, 1);
       expect(camera.opened.single.streaming, isTrue);
     });
 
-    testWidgets('Done asks for a name, saves the PDF and closes the scanner', (tester) async {
+    testWidgets('Done opens the crop editor for every photo, in order', (tester) async {
       await open(tester);
-      await tester.tap(find.byKey(const Key('mode_batch')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('shutter')));
-      await tester.pumpAndSettle();
+      await shoot(tester, 3);
       await tester.tap(find.byKey(const Key('batch_done')));
-      await tester.pumpAndSettle();
+      await settleCrop(tester);
+      expect(find.byType(CropScreen), findsOneWidget);
+      expect(find.text('Adjust edges (1/3)'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
+      expect(session.shots, isEmpty);
+    });
+
+    testWidgets('each photo can be adjusted and saved like in single mode', (tester) async {
+      await open(tester);
+      await shoot(tester, 2);
+      await tester.tap(find.byKey(const Key('batch_done')));
+      await settleCrop(tester);
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Next'));
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      });
+      await settleCrop(tester);
+      expect(find.text('Adjust edges (2/2)'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Save'));
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      });
+      await settleCrop(tester);
       await tester.enterText(find.byType(TextField), 'Batch scan');
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
+
+      expect(processor.calls.where((c) => c.startsWith('crop')), hasLength(2));
       expect(repo.docs.single.name, 'Batch scan');
       expect(result?.name, 'Batch scan');
       expect(find.byType(ScannerScreen), findsNothing);
+    });
+
+    testWidgets('skipping every photo leaves the scanner ready for more', (tester) async {
+      await open(tester);
+      await shoot(tester, 2);
+      await tester.tap(find.byKey(const Key('batch_done')));
+      await settleCrop(tester);
+      await tester.tap(find.text('Skip'));
+      await settleCrop(tester);
+      await tester.tap(find.text('Skip'));
+      await settleCrop(tester);
+      expect(find.byType(ScannerScreen), findsOneWidget);
+      expect(find.byType(CropScreen), findsNothing);
+      expect(session.pages, isEmpty);
+      expect(camera.opened.single.streaming, isTrue);
+    });
+
+    testWidgets('Add keeps the page and Done then saves the PDF directly', (tester) async {
+      await open(tester);
+      await shoot(tester, 1);
+      await tester.tap(find.byKey(const Key('batch_done')));
+      await settleCrop(tester);
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Add'));
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      });
+      await settleCrop(tester);
+      expect(session.pages, hasLength(1));
+      expect(find.byType(CropScreen), findsNothing);
+
+      await tester.tap(find.byKey(const Key('batch_done')));
+      await tester.pumpAndSettle();
+      expect(find.text('PDF name'), findsOneWidget);
     });
 
     testWidgets('does not show Done in single mode', (tester) async {

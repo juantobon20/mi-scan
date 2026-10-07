@@ -24,8 +24,13 @@ class ScanSession extends ChangeNotifier {
   final ImageProcessor _processor;
   final CreateDocument _createDocument;
   final List<ScanPage> _pages = [];
+  final List<String> _shots = [];
 
   List<ScanPage> get pages => List.unmodifiable(_pages);
+
+  List<String> get shots => List.unmodifiable(_shots);
+
+  int get pendingCount => _pages.length + _shots.length;
 
   void add(ScanPage page) {
     _pages.add(page);
@@ -66,16 +71,18 @@ class ScanSession extends ChangeNotifier {
     return ScanPage(dst, size.width, size.height);
   }
 
-  Future<ScanPage> autoCropPage(String sourcePath, {ScanFilter filter = ScanFilter.original}) async {
-    final tmp = await importSource(sourcePath);
-    try {
-      final quad = await _processor.detectInFile(tmp) ?? Quad.inset(0.04);
-      final page = await cropPage(tmp, quad, filter);
-      add(page);
-      return page;
-    } finally {
-      silentDelete(tmp);
-    }
+  Future<String> addShot(String photoPath) async {
+    final stored = await importSource(photoPath);
+    _shots.add(stored);
+    notifyListeners();
+    return stored;
+  }
+
+  List<String> takeShots() {
+    final taken = List<String>.of(_shots);
+    _shots.clear();
+    notifyListeners();
+    return taken;
   }
 
   Future<ScannedDocument> saveAsPdf(String name) => _createDocument(_pages, name);

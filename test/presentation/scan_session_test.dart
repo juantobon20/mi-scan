@@ -85,29 +85,33 @@ void main() {
     expect(session.pages, isEmpty);
   });
 
-  group('autoCropPage', () {
-    test('crops with the detected document and adds the page', () async {
-      processor.detected = Quad.inset(0.1);
-      final page = await session.autoCropPage(makePage('shot').path);
-      expect(processor.calls, ['normalize', 'crop:original', 'normalize']);
-      expect(session.pages, [page]);
+  group('batch shots', () {
+    test('addShot stores a normalized copy inside the session and notifies', () async {
+      final stored = await session.addShot(makePage('shot').path);
+      expect(stored.startsWith(dir.path), isTrue);
+      expect(File(stored).existsSync(), isTrue);
+      expect(session.shots, [stored]);
+      expect(session.pages, isEmpty);
+      expect(notifications, 1);
     });
 
-    test('falls back to the whole image when no document is detected', () async {
-      processor.detected = null;
-      await session.autoCropPage(makePage('shot').path);
-      expect(session.pages, hasLength(1));
+    test('pendingCount adds the pages and the shots', () async {
+      session.add(ScanPage(makePage('a').path, 10, 20));
+      await session.addShot(makePage('b').path);
+      await session.addShot(makePage('c').path);
+      expect(session.pendingCount, 3);
     });
 
-    test('uses the requested filter', () async {
-      await session.autoCropPage(makePage('shot').path, filter: ScanFilter.blackAndWhite);
-      expect(processor.calls, contains('crop:blackAndWhite'));
+    test('takeShots returns them in order and empties the queue', () async {
+      final first = await session.addShot(makePage('one').path);
+      final second = await session.addShot(makePage('two').path);
+      expect(session.takeShots(), [first, second]);
+      expect(session.shots, isEmpty);
     });
 
-    test('does not leave temporary copies behind', () async {
-      await session.autoCropPage(makePage('shot').path);
-      final leftovers = dir.listSync().whereType<File>().where((f) => f.path.contains('src_'));
-      expect(leftovers, isEmpty);
+    test('shots are not editable from outside', () async {
+      await session.addShot(makePage('one').path);
+      expect(() => session.shots.add('x'), throwsUnsupportedError);
     });
   });
 

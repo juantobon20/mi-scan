@@ -9,7 +9,7 @@ Escáner de documentos para Android e iOS hecho con Flutter. Detecta los bordes 
 - Cámara con **detección de bordes en vivo** (Canny + contornos, ejecutada en un isolate).
 - **Zoom** (gesto de pellizco y deslizador), **flash** (apagado, automático, encendido) y **linterna**.
 - **Cambio automático de lente al hacer zoom**, como la cámara original: ultra gran angular, principal y teleobjetivo, sin botones. Solo se usan las cámaras traseras (no hay cámara frontal).
-- **Modo lote**: captura varias páginas seguidas; cada una se recorta sola con el documento detectado y se guarda con "Listo".
+- **Modo lote**: captura varias fotos seguidas sin interrupciones; al pulsar "Listo" se abre el editor de recorte foto por foto (con detección automática, esquinas ajustables y filtros), igual que en el modo individual, y al final se guarda el PDF.
 - Importación desde la **galería** con selección múltiple (HEIC se convierte a JPEG en iOS).
 - Editor de recorte con esquinas arrastrables, detección automática y **filtros**: Original, Enhanced, Grayscale, B&W (umbral adaptativo).
 - Revisión de páginas: reordenar, rotar, eliminar y agregar más.
@@ -128,7 +128,7 @@ Estos reemplazan los comentarios en el código; el código no lleva ninguno.
 | `ScannerController` | Estado del escáner: zoom, flash, linterna, documento detectado (suavizado), modo y captura. Elige la cámara trasera principal y gestiona el cambio de lente según el zoom (ver abajo). |
 | Operaciones de cámara | Abrir, cerrar, reanudar y cambiar de lente se ejecutan **una a una** en una cola. Al pedir el permiso de cámara, Android pausa y reanuda la pantalla mientras la primera apertura sigue esperando; sin la cola se abría la cámara 0 dos veces y CameraX fallaba con "No supported surface combination". |
 | Zoom y lentes | Si la cámara principal ya expone un rango que baja de 1x (multicámara lógica, por ejemplo 0,6x a 10x en un Galaxy S23), el teléfono cambia de lente solo y la app usa ese rango. Si los lentes se listan por separado, la app los combina en un único zoom: por debajo de 1x usa el ultra gran angular (factor 0,5x), de 1x a 2x el principal con zoom digital y desde 2x el teleobjetivo (factor 2x). Los cambios tienen histéresis (0,95x/1x y 1,9x/2x) para no alternar el lente al pellizcar; cada cambio reabre la cámara, conservando flash y linterna. |
-| `ScanMode` | `single` abre el editor de recorte tras cada foto; `batch` recorta sola con `ScanSession.autoCropPage` (filtro Original, documento detectado o la imagen completa) y no interrumpe la captura. |
+| `ScanMode` | `single` abre el editor de recorte tras cada foto; `batch` guarda cada foto normalizada en la cola `ScanSession.shots` sin interrumpir la captura. "Listo" (o tocar la miniatura) vacía la cola con `takeShots()` y abre `CropScreen` para cada foto ("Siguiente", "Omitir", "Agregar" o "Guardar"); "Omitir" descarta esa foto. |
 | `ScreenFactory` | Crea los controladores de escáner y galería y el constructor de la vista previa; se registra en el contenedor de DI y evita que las pantallas lo consulten. |
 | `CropResult` | La página recortada y si el usuario eligió guardar el PDF ahora. |
 
@@ -434,7 +434,6 @@ Cumplimiento:
 
 - El zoom máximo es el que Android entrega a las apps de terceros: en un Galaxy S23 Ultra es 10x (`zoomRatioRange` 0,6 a 10), mientras que la app de cámara de Samsung llega a 100x con APIs propias del fabricante que el plugin `camera` no puede usar.
 - Los factores 0,5x y 2x del cambio de lente en teléfonos con lentes separados son estimaciones: el plugin `camera` no expone las distancias focales, por lo que el encuadre puede dar un pequeño salto al cambiar. Solo se validó en un Galaxy S23 Ultra, que expone la multicámara lógica.
-- El modo lote usa siempre el filtro Original; no hay selector de filtro en la captura continua.
 - `OpenCvImageProcessor` no tiene pruebas automatizadas; se podrían agregar pruebas de integración en dispositivo con imágenes de muestra.
 - Solo hay dos idiomas (inglés y español) y no existe un selector de idioma dentro de la app.
 - No hay persistencia de metadatos más allá del sistema de archivos (sin búsqueda ni etiquetas).

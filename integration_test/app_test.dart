@@ -98,7 +98,7 @@ void main() {
     expect(find.text('Recent'), findsOneWidget);
   });
 
-  testWidgets('scan several pages in batch mode and save them as a PDF', (tester) async {
+  testWidgets('scan several photos in batch mode, adjust each one and save them as a PDF', (tester) async {
     tester.platformDispatcher.localesTestValue = [const Locale('en')];
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
     await tester.pumpWidget(const MiScanApp());
@@ -115,6 +115,12 @@ void main() {
     expect(find.text('2'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('batch_done')));
+    await tester.pumpAndSettle();
+    expect(find.text('Adjust edges (1/2)'), findsOneWidget);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Adjust edges (2/2)'), findsOneWidget);
+    await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Batch scan');
     await tester.tap(find.text('Save'));
